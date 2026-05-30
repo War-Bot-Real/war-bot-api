@@ -1,6 +1,8 @@
 from supabase import create_client
 import os
 from fastapi import FastAPI, HTTPException
+from dotenv import load_dotenv
+load_dotenv()
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_KEY"]
@@ -55,16 +57,17 @@ def getNation(name: str):
 
 @app.get("/territories/{nation}")
 def getNationTerr(nation: str):
+    nations = [i["Name"].lower() for i in getNations()]
+    if nation.lower() not in nations:
+        raise HTTPException(status_code=404, detail="Nation does not exist")
+      
     res = (
         supabase
         .table("territories")
-        .select("Name")
+        .select("Name", "Population", "Buildings")
         .ilike("Nation", nation)
         .execute()
     )
-
-    if not res.data:
-        raise HTTPException(status_code=404, detail="Nation has no territories")
 
     return res.data
 
@@ -102,3 +105,34 @@ def getTroop(id: str):
         raise HTTPException(status_code=404, detail="No troop found")
 
     return res.data[0]
+  
+@app.get("/borders/terr/{name}")
+def getBordersTerr(name: str):
+    res = (
+        supabase
+        .table("territories")
+        .select("Bordering")
+        .ilike("Name", name)
+        .execute()
+    )
+
+    if not res.data:
+        raise HTTPException(status_code=404, detail="No territory found")
+    
+    return res.data[0]  
+      
+@app.get("/borders/nation/{name}")
+def getBordersNat(name: str):
+  terrlist = getNationTerr(name)
+  
+  borders = set()
+  for i in terrlist:
+    print(i["Name"])
+    borders.update(getBordersTerr(i["Name"])["Bordering"])
+  
+  borders = borders - set([i["Name"] for i in terrlist])
+  
+  data = []
+  for i in borders:
+    data.append({"Name": i, "Nation": getTerr(i)["Nation"]})
+  return data
