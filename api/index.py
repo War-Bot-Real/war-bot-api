@@ -1,7 +1,9 @@
 from supabase import create_client
 import os
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+
 load_dotenv()
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
@@ -10,6 +12,13 @@ SUPABASE_KEY = os.environ["SUPABASE_KEY"]
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 app = FastAPI(title="War Bot API")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"], #add real host to this later
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def root():
@@ -17,7 +26,7 @@ def root():
 
 @app.get("/territories")
 def getAllTerr():
-    res = supabase.table("territories").select("Name").execute()
+    res = supabase.table("territories").execute()
     return res.data
 
 @app.get("/territory/{name}")
@@ -37,7 +46,7 @@ def getTerr(name: str):
 
 @app.get("/nations")
 def getNations():
-  res = supabase.table("nations").select("Name").execute()
+  res = supabase.table("nations").execute()
   return res.data
 
 @app.get("/nation/{name}")
