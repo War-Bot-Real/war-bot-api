@@ -14,7 +14,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 app = FastAPI(title="War Bot API")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"], #add real host to this later
+    allow_origins=["http://localhost:5173", "https://war-bot-web.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
