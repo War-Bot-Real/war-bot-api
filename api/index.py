@@ -1,5 +1,6 @@
 from supabase import create_client
 import os
+import requests
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -291,5 +292,39 @@ def getMap(file_path: str):
         res = supabase.storage.from_("maps").create_signed_url(file_path, expires_in=60)
         
         return {"url": res}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+def getDefaultGameData():
+  res = supabase.storage.from_("info").create_signed_url(
+      "data.json",
+      expires_in=60
+  )
+
+  signed_url = res["signedUrl"]
+
+  response = requests.get(signed_url)
+  response.raise_for_status()
+
+  data = response.json()
+
+  return data
+
+@app.get("/shop")
+def shop():
+    try:
+        data = getDefaultGameData()
+        store = {}
+        
+        for i in data["Units"]:
+          prices = {}
+          for j in data["Units"][i]:
+            prices[j] = data["Units"][i][j]["Cost"]
+          store[i + " Units"] = prices
+        
+        store["Buildings"] = data["Buildings"]
+        
+        return store
+
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
