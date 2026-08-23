@@ -26,7 +26,7 @@ def root():
 
 @app.get("/territories")
 def getAllTerr():
-    res = supabase.table("territories").execute()
+    res = supabase.table("territories").select("*").execute()
     return res.data
 
 @app.get("/territory/{name}")
@@ -46,7 +46,7 @@ def getTerr(name: str):
 
 @app.get("/nations")
 def getNations():
-  res = supabase.table("nations").execute()
+  res = supabase.table("nations").select("*").execute()
   return res.data
 
 @app.get("/nation/{name}")
