@@ -285,3 +285,11 @@ def getMarket():
     res = supabase.table("market").select("*").execute()
     return res.data
 
+@app.get("/map/{file_path:path}")
+def getMap(file_path: str):
+    try:
+        res = supabase.storage.from_("maps").create_signed_url(file_path, expires_in=60)
+        
+        return {"url": res}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
