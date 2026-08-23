@@ -145,3 +145,143 @@ def getBordersNat(name: str):
   for i in borders:
     data.append({"Name": i, "Nation": getTerr(i)["Nation"]})
   return data
+
+@app.get("/distance/{from_territory}/{to_territory}")
+def getDistance(from_territory: str, to_territory: str):
+    from_res = (
+        supabase
+        .table("territories")
+        .select("Name, Location")
+        .ilike("Name", from_territory)
+        .execute()
+    )
+
+    if not from_res.data:
+        raise HTTPException(status_code=404, detail="Starting territory not found")
+
+    to_res = (
+        supabase
+        .table("territories")
+        .select("Name, Location")
+        .ilike("Name", to_territory)
+        .execute()
+    )
+
+    if not to_res.data:
+        raise HTTPException(status_code=404, detail="Destination territory not found")
+
+    loc1 = from_res.data[0]["Location"]
+    loc2 = to_res.data[0]["Location"]
+
+    x1, y1 = loc1[0]
+    x2, y2 = loc2[0]
+
+    distance = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+
+    return {
+        "from": from_res.data[0]["Name"],
+        "to": to_res.data[0]["Name"],
+        "distance": distance
+    }
+
+@app.get("/players")
+def getPlayers():
+    res = (
+        supabase
+        .table("nations")
+        .select("Name, Flag, Ideology, ruler")
+        .execute()
+    )
+
+    players = []
+
+    for nation in res.data:
+        players.append({
+            "Nation": nation["Name"],
+            "Flag": nation["Flag"],
+            "Ideology": nation["Ideology"],
+            "Ruler": nation["ruler"]
+        })
+
+    return players
+
+@app.get("/units")
+def getAllUnits():
+    res = supabase.table("units").select("*").execute()
+    return res.data
+
+@app.get("/unit/{name}")
+def getUnit(name: str):
+    res = (
+        supabase
+        .table("units")
+        .select("*")
+        .ilike("Name", name)
+        .execute()
+    )
+
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Unit not found")
+
+    return res.data[0]
+
+@app.get("/units/{nation}")
+def getNationUnits(nation: str):
+    res = (
+        supabase
+        .table("units")
+        .select("*")
+        .ilike("Nation", nation)
+        .execute()
+    )
+
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Nation has no units")
+
+    return res.data
+
+@app.get("/seas")
+def getAllSeas():
+    res = supabase.table("seas").select("*").execute()
+    return res.data
+
+@app.get("/sea/{name}")
+def getSea(name: str):
+    res = (
+        supabase
+        .table("seas")
+        .select("*")
+        .ilike("Name", name)
+        .execute()
+    )
+
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Sea not found")
+
+    return res.data[0]
+
+@app.get("/borders/sea/{name}")
+def getBordersSea(name: str):
+    res = (
+        supabase
+        .table("seas")
+        .select("Bordering")
+        .ilike("Name", name)
+        .execute()
+    )
+
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Sea not found")
+
+    return res.data[0]
+
+@app.get("/maps")
+def getAllMaps():
+    res = supabase.table("maps").select("*").execute()
+    return res.data
+
+@app.get("/market")
+def getMarket():
+    res = supabase.table("market").select("*").execute()
+    return res.data
+
