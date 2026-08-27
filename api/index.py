@@ -116,8 +116,6 @@ def getNation(nation: str, user = Depends(get_current_user)):
     res = supabase.table("nations").select(", ".join(nationPublicFields)).eq("Name", nation)
   
   return res.data
-    
-  
 
 @app.get("/territories/{nation}")
 def getNationTerr(nation: str):
@@ -330,10 +328,13 @@ def shop():
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.patch("/settax/{rate}")
-def settax(rate: int, user = Depends(get_current_user)):
+def checkNation(user):
   if user["nation"] is None:
     raise HTTPException(status_code=403, detail="User is not a nation.")
+
+@app.patch("/settax/{rate}")
+def settax(rate: int, user = Depends(get_current_user)):
+  checkNation(user)
   
   if rate < 0:
     raise HTTPException(status_code=400, detail="Tax rate cannot be below 0!")
@@ -344,3 +345,18 @@ def settax(rate: int, user = Depends(get_current_user)):
   res = supabase.table("nations").update({"Tax Rate": rate}).eq("Name", user["nation"]).execute()
   return res.data[0]
 
+@app.get("/bal")
+def balance(user = Depends(get_current_user)):
+  checkNation(user)
+  
+  res = supabase.table("nations").select("Balance, Stability, Political Power").eq("Name", user["nation"]).execute()
+  return res.data[0]
+
+@app.get("/inv")
+def inventory(user = Depends(get_current_user)):
+  checkNation(user)
+  
+  res = supabase.table("nations").select("Inventory").eq("Name", user["nation"]).execute()
+  return res.data[0]
+  
+  
