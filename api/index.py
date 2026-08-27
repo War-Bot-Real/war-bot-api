@@ -97,32 +97,27 @@ def getTerr(name: str):
         raise HTTPException(status_code=404, detail="Territory not found")
 
     return res.data[0]
+  
+nationPublicFields = ["Name", "Ideology", "Flag", "Demonym", "Color", "Capital", "Diplomacy"]
 
 @app.get("/nations")
-def getNations(user = Depends(get_current_user)):
-  
-  public = ["Name", "Ideology", "Flag", "Demonym", "Color", "Capital", "Diplomacy"]
-  private = ["Balance", "Stability", "Inventory", "Tax Rate", "Political Power", "Ruler"]
-  
-  if user["admin"]:
-    res = supabase.table("nations").select(", ".join(public + private)).execute()
-    return res.data
-
-  res = supabase.table("nations").select(", ".join(public)).execute()
-  if user["nation"] is None:
-    return res.data
-  
-  nationdata = supabase.table("nations").select(", ".join(private)).eq("ruler", user["id"]).execute()
-  
-  if nationdata.data:
-    privatedata = nationdata.data[0]
-
-    for nation in res.data:
-        if nation["Name"] == user["nation"]:
-            nation.update(privatedata)
-            break
+def getNations():
+  res = supabase.table("nations").select(", ".join(nationPublicFields)).execute()
           
   return res.data
+
+@app.get("/nation/{nation}")
+def getNation(nation: str, user = Depends(get_current_user)):
+  if user["admin"]:
+    res = supabase.table("nations").select("*").eq("Name", nation)
+  elif user["nation"] is not None:
+    res = supabase.table("nations").select("*").eq("Name", nation)
+  else:
+    res = supabase.table("nations").select(", ".join(nationPublicFields)).eq("Name", nation)
+  
+  return res.data
+    
+  
 
 @app.get("/territories/{nation}")
 def getNationTerr(nation: str):
