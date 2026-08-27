@@ -349,7 +349,7 @@ def settax(rate: int, user = Depends(get_current_user)):
 def balance(user = Depends(get_current_user)):
   checkNation(user)
   
-  res = supabase.table("nations").select("Balance, Stability, Political Power").eq("Name", user["nation"]).execute()
+  res = supabase.table("nations").select('Balance, Stability, "Political Power"').eq("Name", user["nation"]).execute()
   return res.data[0]
 
 @app.get("/inv")
