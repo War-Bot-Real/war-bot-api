@@ -1,8 +1,9 @@
 from supabase import create_client
 import os
 import requests
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -20,6 +21,49 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+security = HTTPBearer()
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    token = credentials.credentials
+
+    try:
+        user = supabase.auth.get_user(token)
+    except Exception:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired authentication token"
+        )
+
+    if not user or not user.user:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid authentication"
+        )
+
+    auth_user_id = user.user.id
+
+    res = (
+        supabase
+        .table("players")
+        .select("id, auth_user_id, discord_id")
+        .eq("auth_user_id", auth_user_id)
+        .execute()
+    )
+
+    if not res.data:
+        raise HTTPException(
+            status_code=403,
+            detail="Authenticated user is not a registered player"
+        )
+
+    return res.data[0]
+
+@app.get("/me")
+def getMe(user = Depends(get_current_user)):
+    return user
 
 @app.get("/")
 def root():
