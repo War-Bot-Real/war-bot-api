@@ -99,8 +99,29 @@ def getTerr(name: str):
     return res.data[0]
 
 @app.get("/nations")
-def getNations():
-  res = supabase.table("nations").select("*").execute()
+def getNations(user = Depends(get_current_user)):
+  
+  public = ["Name", "Ideology", "Flag", "Demonym", "Color", "Capital", "Diplomacy"]
+  private = ["Balance", "Stability", "Inventory", "Tax Rate", "Political Power", "Ruler"]
+  
+  if user["admin"]:
+    res = supabase.table("nations").select(", ".join(public + private)).execute()
+    return res.data
+
+  res = supabase.table("nations").select(", ".join(public)).execute()
+  if user["nation"] is None:
+    return res.data
+  
+  nationdata = supabase.table("nations").select(", ".join(private)).eq("player_id", user["id"]).execute()
+  
+  if nationdata.data:
+    privatedata = nationdata.data[0]
+
+    for nation in res.data:
+        if nation["Name"] == user["nation"]:
+            nation.update(privatedata)
+            break
+          
   return res.data
 
 @app.get("/nation/{name}")
