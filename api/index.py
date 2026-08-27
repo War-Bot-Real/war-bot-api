@@ -48,7 +48,7 @@ def get_current_user(
     res = (
         supabase
         .table("players")
-        .select("id, auth_user_id, discord_id")
+        .select("id, auth_user_id, discord_id, admin")
         .eq("auth_user_id", auth_user_id)
         .execute()
     )
@@ -58,6 +58,15 @@ def get_current_user(
             status_code=403,
             detail="Authenticated user is not a registered player"
         )
+    
+    nation_res = (
+        supabase
+        .table("nations")
+        .select("Name")
+        .eq("player_id", res.data[0]["id"])
+        .execute()
+    )
+    res.data[0]["nation"] = nation_res.data[0]["Name"] if nation_res.data else None
 
     return res.data[0]
 
