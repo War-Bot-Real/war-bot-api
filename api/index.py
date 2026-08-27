@@ -286,11 +286,14 @@ def getMarket():
     res = supabase.table("market").select("*").execute()
     return res.data
 
-@app.get("/map/{file_path:path}")
-def getMap(file_path: str):
+@app.get("/map/{map}/{shrink}")
+def getMap(map: str, shrink: bool):
     try:
-        res = supabase.storage.from_("maps").create_signed_url(file_path, expires_in=60)
-        
+        if shrink:
+          res = supabase.storage.from_("maps").create_signed_url(f"{map}/shrink.png", expires_in=60)
+        else:
+          res = supabase.storage.from_("maps").create_signed_url(f"{map}/map.png", expires_in=60)
+          
         return {"url": res}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
