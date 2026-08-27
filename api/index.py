@@ -24,9 +24,7 @@ app.add_middleware(
 
 security = HTTPBearer()
 
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
-):
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
 
     try:
@@ -336,3 +334,18 @@ def shop():
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.patch("/settax/{rate}")
+def settax(rate: int, user = Depends(get_current_user)):
+  if user["nation"] is None:
+    raise HTTPException(status_code=403, detail="User is not a nation.")
+  
+  if rate < 0:
+    raise HTTPException(status_code=400, detail="Tax rate cannot be below 0!")
+  
+  if rate > 100:
+    raise HTTPException(status_code=400, detail="Tax rate cannot be above 100!")
+  
+  res = supabase.table("nations").update({"Tax Rate": rate}).eq("Name", user["nation"]).execute()
+  return res.data[0]
+
