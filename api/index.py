@@ -63,7 +63,7 @@ def get_current_user(
         supabase
         .table("nations")
         .select("Name")
-        .eq("player_id", res.data[0]["id"])
+        .eq("ruler", res.data[0]["id"])
         .execute()
     )
     res.data[0]["nation"] = nation_res.data[0]["Name"] if nation_res.data else None
@@ -80,11 +80,13 @@ def root():
 
 @app.get("/territories")
 def getAllTerr():
+    # All aspects of a territory are public information
     res = supabase.table("territories").select("*").execute()
     return res.data
 
 @app.get("/territory/{name}")
 def getTerr(name: str):
+    # All aspects of a territory are public information
     res = (
         supabase
         .table("territories")
@@ -112,7 +114,7 @@ def getNations(user = Depends(get_current_user)):
   if user["nation"] is None:
     return res.data
   
-  nationdata = supabase.table("nations").select(", ".join(private)).eq("player_id", user["id"]).execute()
+  nationdata = supabase.table("nations").select(", ".join(private)).eq("ruler", user["id"]).execute()
   
   if nationdata.data:
     privatedata = nationdata.data[0]
@@ -124,21 +126,6 @@ def getNations(user = Depends(get_current_user)):
           
   return res.data
 
-@app.get("/nation/{name}")
-def getNation(name: str):
-    res = (
-        supabase
-        .table("nations")
-        .select("*")
-        .ilike("Name", name)
-        .execute()
-    )
-
-    if not res.data:
-        raise HTTPException(status_code=404, detail="Nation not found")
-
-    return res.data[0]
-
 @app.get("/territories/{nation}")
 def getNationTerr(nation: str):
     nations = [i["Name"].lower() for i in getNations()]
@@ -148,47 +135,26 @@ def getNationTerr(nation: str):
     res = (
         supabase
         .table("territories")
-        .select("Name", "Population", "Buildings")
-        .ilike("Nation", nation)
-        .execute()
-    )
-
-    return res.data
-
-@app.get("/troops")
-def getAllTroops():
-    res = supabase.table("troops").select("ID").execute()
-    return res.data
-
-@app.get("/troops/{nation}")
-def getNationTroops(nation: str):
-    res = (
-        supabase
-        .table("troops")
-        .select("ID")
-        .ilike("Nation", nation)
-        .execute()
-    )
-
-    if not res.data:
-        raise HTTPException(status_code=404, detail="Nation has no troops")
-
-    return res.data
-
-@app.get("/troop/{id}")
-def getTroop(id: str):
-    res = (
-        supabase
-        .table("troops")
         .select("*")
-        .ilike("ID", id)
+        .ilike("Nation", nation)
         .execute()
     )
 
-    if not res.data:
-        raise HTTPException(status_code=404, detail="No troop found")
+    return res.data
 
-    return res.data[0]
+@app.get("/units/{nation}")
+def getNationTroops(nation: str, user = Depends(get_current_user)):
+    if user["admin"]:
+      res = supabase.table("units").select("*").eq("Nation", nation).execute()
+    elif user["nation"] is not None:
+      if user["nation"] == nation:
+        res = supabase.table("units").select("*").eq("Nation", nation).execute()
+      else:
+        raise HTTPException(status_code=403, detail="You do not have permission to access units from this nation.")
+    else:
+      raise HTTPException(status_code=403, detail="You do not have permission to access units from this nation.")
+
+    return res.data
   
 @app.get("/borders/terr/{name}")
 def getBordersTerr(name: str):
@@ -279,41 +245,6 @@ def getPlayers():
         })
 
     return players
-
-@app.get("/units")
-def getAllUnits():
-    res = supabase.table("units").select("*").execute()
-    return res.data
-
-@app.get("/unit/{name}")
-def getUnit(name: str):
-    res = (
-        supabase
-        .table("units")
-        .select("*")
-        .ilike("Name", name)
-        .execute()
-    )
-
-    if not res.data:
-        raise HTTPException(status_code=404, detail="Unit not found")
-
-    return res.data[0]
-
-@app.get("/units/{nation}")
-def getNationUnits(nation: str):
-    res = (
-        supabase
-        .table("units")
-        .select("*")
-        .ilike("Nation", nation)
-        .execute()
-    )
-
-    if not res.data:
-        raise HTTPException(status_code=404, detail="Nation has no units")
-
-    return res.data
 
 @app.get("/seas")
 def getAllSeas():
