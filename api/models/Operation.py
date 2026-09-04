@@ -5,3 +5,4 @@ from typing import Literal
 class Operation:
     type: Literal["add", "set"]
     value: int | float
+    key: str | None = None
