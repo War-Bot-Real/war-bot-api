@@ -1,4 +1,3 @@
-from api.models.Nation import Nation
 from api.models.Operation import Operation
 
 def collectIncome(nation):
