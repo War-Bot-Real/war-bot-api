@@ -2,9 +2,9 @@ from api.models.Nation import Nation
 
 def collectIncome(nation):
     income = 1000
-    nation["balance"] += income
+    nation["Balance"] += income
 
     return {
         "income": income,
-        "balance": nation["balance"] 
+        "balance": nation["Balance"] 
     }
