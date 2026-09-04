@@ -1,4 +1,4 @@
-from models.Nation import Nation
+from api.models.Nation import Nation
 
 def collectIncome(nation: Nation):
     income = 1000

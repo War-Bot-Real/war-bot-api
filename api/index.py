@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 
-from game_logic.income import collectIncome
+from api.game_logic.income import collectIncome
 
 load_dotenv()
 
