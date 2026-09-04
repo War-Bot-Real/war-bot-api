@@ -6,6 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 
+from game_logic.income import collectIncome
+
 load_dotenv()
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
@@ -359,4 +361,26 @@ def inventory(user = Depends(get_current_user)):
   res = supabase.table("nations").select("Inventory").eq("Name", user["nation"]).execute()
   return res.data[0]
   
-  
+@app.post("/income/collect")
+def collect(user = Depends(get_current_user)):
+
+    if user["nation"] is None:
+        raise HTTPException(status_code=403, detail="User does not control a nation")
+
+    res = supabase.table("nations").select("Name, Balance").eq("player_id", user["id"]).execute()
+
+    if not res.data:
+        raise HTTPException(status_code=404, detail="User Nation not found")
+
+    nation = res.data[0]
+    collectResponse = collectIncome(nation)
+    income = collectResponse["income"]
+    new_balance = collectResponse["balance"]
+    supabase.table("nations").update({"Balance": new_balance}).eq("player_id", user["id"]).execute()
+
+    return {
+        "success": True,
+        "nation": nation["Name"],
+        "income": income,
+        "balance": new_balance
+    }
