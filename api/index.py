@@ -367,7 +367,7 @@ def collect(user = Depends(get_current_user)):
     if user["nation"] is None:
         raise HTTPException(status_code=403, detail="User does not control a nation")
 
-    res = supabase.table("nations").select("Name, Balance").eq("player_id", user["id"]).execute()
+    res = supabase.table("nations").select("Name, Balance").eq("ruler", user["id"]).execute()
 
     if not res.data:
         raise HTTPException(status_code=404, detail="User Nation not found")
@@ -376,7 +376,7 @@ def collect(user = Depends(get_current_user)):
     collectResponse = collectIncome(nation)
     income = collectResponse["income"]
     new_balance = collectResponse["balance"]
-    supabase.table("nations").update({"Balance": new_balance}).eq("player_id", user["id"]).execute()
+    supabase.table("nations").update({"Balance": new_balance}).eq("ruler", user["id"]).execute()
 
     return {
         "success": True,
