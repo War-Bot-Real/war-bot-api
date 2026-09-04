@@ -5,9 +5,12 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
+from pydantic import BaseModel
 
-from api.game_logic.income import collectIncome
 from api.updateDatabase import updateDatabase
+from api.game_logic.income import collectIncome
+from api.game_logic.shop import buyItem
+from api.gameData import GameData
 
 load_dotenv()
 
@@ -15,6 +18,7 @@ SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_KEY"]
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+gameData = GameData(supabase)
 
 app = FastAPI(title="War Bot API")
 app.add_middleware(
@@ -297,39 +301,9 @@ def getMap(map: str, shrink: bool):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-def getDefaultGameData():
-  res = supabase.storage.from_("info").create_signed_url(
-      "data.json",
-      expires_in=60
-  )
-
-  signed_url = res["signedUrl"]
-
-  response = requests.get(signed_url)
-  response.raise_for_status()
-
-  data = response.json()
-
-  return data
-
 @app.get("/shop")
 def shop():
-    try:
-        data = getDefaultGameData()
-        store = {}
-        
-        for i in data["Units"]:
-          prices = {}
-          for j in data["Units"][i]:
-            prices[j] = data["Units"][i][j]["Cost"]
-          store[i + " Units"] = prices
-        
-        store["Buildings"] = data["Buildings"]
-        
-        return store
-
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return gameData.getShop()
 
 def checkNation(user):
   if user["nation"] is None:
@@ -375,6 +349,35 @@ def collect(user = Depends(get_current_user)):
 
     nation = res.data[0]
     change = collectIncome(nation)
+    updated = updateDatabase(supabase, change)
+
+    return {
+        "success": True,
+        "Nation": nation["Name"],
+        "Change": change,
+        "Updated": updated
+    }
+
+class BuyRequest(BaseModel):
+    item: str
+    quantity: int
+    
+@app.post("/buy")
+def buy(request: BuyRequest, user = Depends(get_current_user)):
+
+    if user["nation"] is None:
+        raise HTTPException(status_code=403, detail="User does not control a nation")
+    
+    if request.quantity < 1:
+        raise HTTPException(status_code=400, detail="Quantity must be greater than 0")
+
+    res = supabase.table("nations").select("*").eq("ruler", user["id"]).execute()
+
+    if not res.data:
+        raise HTTPException(status_code=404, detail="User Nation not found")
+
+    nation = res.data[0]
+    change = buyItem(nation, gameData, request.item, request.quantity)
     updated = updateDatabase(supabase, change)
 
     return {
