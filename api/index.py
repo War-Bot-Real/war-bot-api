@@ -7,6 +7,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 
 from api.game_logic.income import collectIncome
+from api.updateDatabase import updateDatabase
 
 load_dotenv()
 
@@ -367,20 +368,17 @@ def collect(user = Depends(get_current_user)):
     if user["nation"] is None:
         raise HTTPException(status_code=403, detail="User does not control a nation")
 
-    res = supabase.table("nations").select("Name, Balance").eq("ruler", user["id"]).execute()
+    res = supabase.table("nations").select("*").eq("ruler", user["id"]).execute()
 
     if not res.data:
         raise HTTPException(status_code=404, detail="User Nation not found")
 
     nation = res.data[0]
-    collectResponse = collectIncome(nation)
-    income = collectResponse["income"]
-    new_balance = collectResponse["balance"]
-    supabase.table("nations").update({"Balance": new_balance}).eq("ruler", user["id"]).execute()
+    change = collectIncome(nation)
+    updated = updateDatabase(supabase, change)
 
     return {
         "success": True,
-        "nation": nation["Name"],
-        "income": income,
-        "balance": new_balance
+        "Change": change,
+        "Updated": updated
     }

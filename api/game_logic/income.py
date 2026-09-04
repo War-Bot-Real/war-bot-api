@@ -1,10 +1,9 @@
 from api.models.Nation import Nation
+from api.models.Operation import Operation
 
 def collectIncome(nation):
-    income = 1000
-    nation["Balance"] += income
-
     return {
-        "income": income,
-        "balance": nation["Balance"] 
+        nation["Name"]: {
+            "Balance": Operation('add', 10000)
+        }
     }
