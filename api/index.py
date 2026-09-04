@@ -379,6 +379,7 @@ def collect(user = Depends(get_current_user)):
 
     return {
         "success": True,
+        "Nation": nation["Name"],
         "Change": change,
         "Updated": updated
     }
