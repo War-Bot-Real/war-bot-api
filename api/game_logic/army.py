@@ -1,5 +1,17 @@
 from api.models.Operation import Operation
 
+def quadify(arg):
+  if type(arg) == type(str()):
+    if not arg.isdigit():
+      return (arg)
+  z = ""
+  arg = str(arg)
+  if len(arg) < 4:
+    for i in range(4 - len(arg)):
+      z += "0"
+  z += arg
+  return (z)
+
 def getUnitData(gameData, unittype):
   allunits = gameData.getDefaultGameData()["Units"]
   for domain in allunits:
@@ -18,6 +30,7 @@ def deployUnit(gameData, nation, territory, unit, quantity):
     raise ValueError(f"Nation does not have enough {unit}")
   
   unitdata = getUnitData(gameData, unit)
+  unitid = quadify(gameData.incrementUnitCounters(unitdata["Short Form"])) + unitdata["Short Form"]
   
   return {
     "changes": {
@@ -27,6 +40,7 @@ def deployUnit(gameData, nation, territory, unit, quantity):
     },
 
     "unit": {
+        "Name": unitid,
         "Type": unit,
         "Quantity": quantity * unitdata["Each"],
         "Nation": nation["Name"],
