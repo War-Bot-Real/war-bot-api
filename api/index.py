@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 
 from api.updateDatabase import updateDatabase
-from api.game_logic.income import collectIncome
+from api.game_logic.income import collectIncome, calcRevByTerr
 from api.game_logic.shop import buyItem
 from api.game_logic.army import deployUnit
 from api.gameData import GameData
@@ -349,7 +349,7 @@ def collect(user = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="User Nation not found")
 
     nation = res.data[0]
-    change = collectIncome(nation)
+    change = collectIncome(gameData, nation)
     updated = updateDatabase(supabase, change)
 
     return {
@@ -357,6 +357,25 @@ def collect(user = Depends(get_current_user)):
         "Nation": nation["Name"],
         "Change": change,
         "Updated": updated
+    }
+
+@app.get("/income/view")
+def income(user = Depends(get_current_user)):
+    if user["nation"] is None:
+        raise HTTPException(status_code=403, detail="User does not control a nation")
+
+    res = supabase.table("nations").select("*").eq("ruler", user["id"]).execute()
+
+    if not res.data:
+        raise HTTPException(status_code=404, detail="User Nation not found")
+
+    nation = res.data[0]
+    income = calcRevByTerr(gameData, nation)
+
+    return {
+        "success": True,
+        "Nation": nation["Name"],
+        "Income": income
     }
 
 class BuyRequest(BaseModel):

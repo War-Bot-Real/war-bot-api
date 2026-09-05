@@ -51,3 +51,10 @@ class GameData:
       self.supabase.table("unitcounters").update({"count": newcount}).eq("id", unit_id).execute()
 
       return newcount
+    
+    def getNationTerr(self, nationName):
+      res = self.supabase.table("territories").select("*").eq("Nation", nationName).execute()
+      return res
+    
+    def gameTime(self):
+      return 100
