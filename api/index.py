@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from api.updateDatabase import updateDatabase
 from api.game_logic.income import collectIncome
 from api.game_logic.shop import buyItem
+from api.game_logic.army import deployUnit
 from api.gameData import GameData
 
 load_dotenv()
@@ -385,4 +386,40 @@ def buy(request: BuyRequest, user = Depends(get_current_user)):
         "Nation": nation["Name"],
         "Change": change,
         "Updated": updated
+    }
+    
+class DeployRequest(BaseModel):
+    unit: str
+    quantity: int
+    territory: str    
+    
+@app.post("/deploy")
+def deploy(request: DeployRequest, user = Depends(get_current_user)):
+
+    if user["nation"] is None:
+        raise HTTPException(status_code=403, detail="User does not control a nation")
+    
+    if request.quantity < 1:
+        raise HTTPException(status_code=400, detail="Quantity must be greater than 0")
+
+    nation = supabase.table("nations").select("*").eq("ruler", user["id"]).execute()
+
+    if not nation.data:
+        raise HTTPException(status_code=404, detail="User nation not found")
+      
+    terr = supabase.table("territories").select("*").eq("Name", request.territory).execute()
+
+    if not terr.data:
+        raise HTTPException(status_code=404, detail="Territory not found")
+
+    result = deployUnit(gameData, nation.data[0], terr.data[0], request.unit, request.quantity)
+    updated = updateDatabase(supabase, result["changes"])
+    newunit = supabase.table("units").insert(result["unit"]).execute()
+
+    return {
+        "success": True,
+        "Nation": user["Nation"],
+        "Change": result["changes"],
+        "Updated": updated,
+        "Unit": newunit
     }
