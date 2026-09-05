@@ -54,7 +54,7 @@ class GameData:
     
     def getNationTerr(self, nationName):
       res = self.supabase.table("territories").select("*").eq("Nation", nationName).execute()
-      return res
+      return res.data
     
     def gameTime(self):
       return 100
