@@ -16,8 +16,8 @@ def getUnitData(gameData, unittype):
   allunits = gameData.getDefaultGameData()["Units"]
   for domain in allunits:
     for unit in allunits[domain]:
-      if unit.lower() == unittype or allunits[domain][unittype]["Short Form"] == unittype.upper(): 
-        return allunits[domain][unittype]
+      if unit.lower() == unittype or allunits[domain][unit]["Short Form"] == unittype.upper(): 
+        return allunits[domain][unit]
   return None
 
 def deployUnit(gameData, nation, territory, unit, quantity):
