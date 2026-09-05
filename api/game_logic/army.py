@@ -21,7 +21,7 @@ def getUnitData(gameData, unittype):
 
 def deployUnit(gameData, nation, territory, unit, quantity):
   if territory["Nation"] != nation["Name"]:
-    raise ValueError(f'{nation["Name"]} does not own {territory["Name"]}')
+    raise ValueError(f'{territory["Name"]} is owned by {territory["Nation"]}')
   
   if unit not in nation["Inventory"]:
     raise ValueError(f"Nation does not have any {unit}")
@@ -30,6 +30,10 @@ def deployUnit(gameData, nation, territory, unit, quantity):
     raise ValueError(f"Nation does not have enough {unit}")
   
   unitdata = getUnitData(gameData, unit)
+  
+  if unitdata == None:
+    raise ValueError("Invalid Unit Type")
+  
   unitid = quadify(gameData.incrementUnitCounters(unitdata["Short Form"])) + unitdata["Short Form"]
   
   return {

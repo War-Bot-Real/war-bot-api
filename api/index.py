@@ -412,7 +412,11 @@ def deploy(request: DeployRequest, user = Depends(get_current_user)):
     if not terr.data:
         raise HTTPException(status_code=404, detail="Territory not found")
 
-    result = deployUnit(gameData, nation.data[0], terr.data[0], request.unit, request.quantity)
+    try:
+      result = deployUnit(gameData, nation.data[0], terr.data[0], request.unit, request.quantity)
+    except ValueError as e:
+      raise HTTPException(status_code=400, detail=str(e))
+      
     updated = updateDatabase(supabase, result["changes"])
     newunit = supabase.table("units").insert(result["unit"]).execute()
 
