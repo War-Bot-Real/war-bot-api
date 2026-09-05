@@ -418,7 +418,7 @@ def deploy(request: DeployRequest, user = Depends(get_current_user)):
 
     return {
         "success": True,
-        "Nation": user["Nation"],
+        "Nation": user["nation"],
         "Change": result["changes"],
         "Updated": updated,
         "Unit": newunit
