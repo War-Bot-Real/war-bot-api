@@ -15,24 +15,24 @@ def quadify(arg):
 def getUnitData(gameData, unittype):
   allunits = gameData.getDefaultGameData()["Units"]
   for domain in allunits:
-    if unittype in allunits[domain]:
-      return allunits[domain][unittype]
+    for unit in allunits[domain]:
+      if unit.lower() == unittype or allunits[domain][unittype]["Short Form"] == unittype.upper(): 
+        return allunits[domain][unittype]
   return None
 
 def deployUnit(gameData, nation, territory, unit, quantity):
   if territory["Nation"] != nation["Name"]:
     raise ValueError(f'{territory["Name"]} is owned by {territory["Nation"]}')
   
+  unitdata = getUnitData(gameData, unit)
+  if unitdata == None:
+    raise ValueError("Invalid Unit Type")
+  
   if unit not in nation["Inventory"]:
     raise ValueError(f"Nation does not have any {unit}")
    
   if nation["Inventory"][unit] < quantity:
     raise ValueError(f"Nation does not have enough {unit}")
-  
-  unitdata = getUnitData(gameData, unit)
-  
-  if unitdata == None:
-    raise ValueError("Invalid Unit Type")
   
   unitid = quadify(gameData.incrementUnitCounters(unitdata["Short Form"])) + unitdata["Short Form"]
   
