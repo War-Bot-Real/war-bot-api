@@ -111,11 +111,11 @@ def getNations():
 @app.get("/nation/{nation}")
 def getNation(nation: str, user = Depends(get_current_user)):
   if user["admin"]:
-    res = supabase.table("nations").select("*").eq("Name", nation)
-  elif user["nation"] is not None:
-    res = supabase.table("nations").select("*").eq("Name", nation)
+    res = supabase.table("nations").select("*").eq("Name", nation).execute()
+  elif user["nation"] == nation:
+    res = supabase.table("nations").select("*").eq("Name", nation).execute()
   else:
-    res = supabase.table("nations").select(", ".join(nationPublicFields)).eq("Name", nation)
+    res = supabase.table("nations").select(", ".join(nationPublicFields)).eq("Name", nation).execute()
   
   return res.data
 
