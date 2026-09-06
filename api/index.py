@@ -444,3 +444,44 @@ def startDiscordLink(user=Depends(get_current_user)):
         "code": code,
         "expires_at": expires_at.isoformat()
     }
+    
+class DiscordLinkRequest(BaseModel):
+    code: str
+    discord_id: str    
+    
+@app.post("/discord/link/confirm")
+def confirmDiscordLink(request: DiscordLinkRequest, user=Depends(get_current_user)):
+    if user.get("source") != "bot":
+        raise HTTPException(status_code=403, detail="This endpoint can only be used by the Discord bot")
+
+    res = supabase.table("discord_link_codes").select("code, player_id, expires_at").eq("code", request.code.upper()).execute()
+    if not res.data:
+        raise HTTPException(status_code=400, detail="Invalid linking code")
+
+    link = res.data[0]
+    
+    expires_at = datetime.fromisoformat(link["expires_at"].replace("Z", "+00:00"))
+    if datetime.now(timezone.utc) >= expires_at:
+        supabase.table("discord_link_codes").delete().eq("code", request.code.upper()).execute()
+        raise HTTPException(status_code=400, detail="Linking code has expired")
+
+    player_res = supabase.table("players").select("id, discord_id").eq("id", link["player_id"]).execute()
+    if not player_res.data:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    player = player_res.data[0]
+    if player["discord_id"] is not None:
+        supabase.table("discord_link_codes").delete().eq("code", request.code.upper()).execute()
+        raise HTTPException(status_code=400, detail="A Discord account is already linked to this player")
+
+    existing_res = supabase.table("players").select("id").eq("discord_id", request.discord_id).execute()
+    if existing_res.data:
+        raise HTTPException(status_code=400, detail="This Discord account is already linked to a player")
+
+    supabase.table("players").update({"discord_id": request.discord_id}).eq("id", link["player_id"]).execute()
+    supabase.table("discord_link_codes").delete().eq("code", request.code.upper()).execute()
+
+    return {
+        "success": True,
+        "message": "Discord account linked successfully"
+    }
