@@ -21,36 +21,49 @@ def getUnitData(gameData, unittype):
   return None
 
 def deployUnit(gameData, nation, territory, unit, quantity):
-  if territory["Nation"] != nation["Name"]:
-    raise ValueError(f'{territory["Name"]} is owned by {territory["Nation"]}')
-  
-  unitdata = getUnitData(gameData, unit)
-  if unitdata == None:
-    raise ValueError("Invalid Unit Type")
-  
-  if unit not in nation["Inventory"]:
-    raise ValueError(f"Nation does not have any {unit}")
-   
-  if nation["Inventory"][unit] < quantity:
-    raise ValueError(f"Nation does not have enough {unit}")
-  
-  unitid = quadify(gameData.incrementUnitCounters(unitdata["Short Form"])) + unitdata["Short Form"]
-  
-  return {
-    "changes": {
-        nation["Name"]: {
-            "Inventory": Operation("add", -quantity, unit)
-        }
-    },
+    if territory["Nation"] != nation["Name"]:
+        raise ValueError(
+            f'{territory["Name"]} is owned by {territory["Nation"]}'
+        )
 
-    "unit": {
-        "Name": unitid,
-        "Type": unit,
-        "Quantity": quantity * unitdata["Each"],
-        "Nation": nation["Name"],
-        "Location": territory["Name"],
-        "Active": True,
-        "TiredUntil": 0
+    unitdata = getUnitData(gameData, unit)
+
+    if unitdata is None:
+        raise ValueError("Invalid Unit Type")
+
+    if unit not in nation["Inventory"]:
+        raise ValueError(f"Nation does not have any {unit}")
+
+    if nation["Inventory"][unit] < quantity:
+        raise ValueError(f"Nation does not have enough {unit}")
+
+    unitid = (
+        quadify(
+            gameData.incrementUnitCounters(unitdata["Short Form"])
+        )
+        + unitdata["Short Form"]
+    )
+
+    return {
+        "changes": [
+            {
+                "table": "nations",
+                "where": {
+                    "Name": nation["Name"]
+                },
+                "changes": {
+                    "Inventory": Operation("add", -quantity, unit)
+                }
+            }
+        ],
+
+        "unit": {
+            "Name": unitid,
+            "Type": unit,
+            "Quantity": quantity * unitdata["Each"],
+            "Nation": nation["Name"],
+            "Location": territory["Name"],
+            "Active": True,
+            "TiredUntil": 0
+        }
     }
-  }
-  
