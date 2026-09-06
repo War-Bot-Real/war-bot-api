@@ -7,7 +7,6 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from pydantic import BaseModel
 
-from api.updateDatabase import updateDatabase
 from api.game_logic.income import collectIncome, calcRevByTerr
 from api.game_logic.shop import buyItem
 from api.game_logic.army import deployUnit
@@ -332,25 +331,19 @@ def inventory(user = Depends(get_current_user)):
   return res.data[0]
   
 @app.post("/income/collect")
-def collect(user = Depends(get_current_user)):
+def collect(user=Depends(get_current_user)):
+    checkNation(user)
 
-    if user["nation"] is None:
-        raise HTTPException(status_code=403, detail="User does not control a nation")
-
-    res = supabase.table("nations").select("*").eq("ruler", user["id"]).execute()
-
-    if not res.data:
-        raise HTTPException(status_code=404, detail="User Nation not found")
-
-    nation = res.data[0]
-    change = collectIncome(gameData, nation)
-    updated = updateDatabase(supabase, change)
+    try:
+        nation = gameData.getNation(user["nation"])
+        result = collectIncome(gameData, nation)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     return {
         "success": True,
         "Nation": nation["Name"],
-        "Change": change,
-        "Updated": updated
+        "result": result
     }
 
 @app.get("/income/view")
@@ -376,26 +369,18 @@ class BuyRequest(BaseModel):
     quantity: int
     
 @app.post("/buy")
-def buy(request: BuyRequest, user = Depends(get_current_user)):
+def buy(request: BuyRequest, user=Depends(get_current_user)):
     checkNation(user)
-    
-    if request.quantity < 1:
-        raise HTTPException(status_code=400, detail="Quantity must be greater than 0")
+    nation = gameData.getNation(user["nation"])
 
-    res = supabase.table("nations").select("*").eq("ruler", user["id"]).execute()
-
-    if not res.data:
-        raise HTTPException(status_code=404, detail="User Nation not found")
-
-    nation = res.data[0]
-    change = buyItem(nation, gameData, request.item, request.quantity)
-    updated = updateDatabase(supabase, change)
+    try:
+        result = buyItem(nation, gameData, request.item, request.quantity)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     return {
         "success": True,
-        "Nation": nation["Name"],
-        "Change": change,
-        "Updated": updated
+        "result": result
     }
     
 class DeployRequest(BaseModel):
@@ -404,34 +389,21 @@ class DeployRequest(BaseModel):
     territory: str    
     
 @app.post("/deploy")
-def deploy(request: DeployRequest, user = Depends(get_current_user)):
+def deploy(request: DeployRequest, user=Depends(get_current_user)):
     checkNation(user)
-    
-    if request.quantity < 1:
-        raise HTTPException(status_code=400, detail="Quantity must be greater than 0")
+    nation = gameData.getNation(user["nation"])
 
-    nation = supabase.table("nations").select("*").eq("ruler", user["id"]).execute()
+    territory = supabase.table("territories").select("*").eq("Name", request.territory).execute()
 
-    if not nation.data:
-        raise HTTPException(status_code=404, detail="User nation not found")
-      
-    terr = supabase.table("territories").select("*").eq("Name", request.territory).execute()
-
-    if not terr.data:
+    if not territory.data:
         raise HTTPException(status_code=404, detail="Territory not found")
 
     try:
-      result = deployUnit(gameData, nation.data[0], terr.data[0], request.unit, request.quantity)
+        result = deployUnit(gameData, nation, territory.data[0], request.unit, request.quantity)
     except ValueError as e:
-      raise HTTPException(status_code=400, detail=str(e))
-      
-    updated = updateDatabase(supabase, result["changes"])
-    newunit = supabase.table("units").insert(result["unit"]).execute()
+        raise HTTPException(status_code=400, detail=str(e))
 
     return {
         "success": True,
-        "Nation": user["nation"],
-        "Change": result["changes"],
-        "Updated": updated,
-        "Unit": newunit
+        "result": result
     }

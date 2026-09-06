@@ -37,16 +37,14 @@ def calcRevByTerr(gameData, nation):
 
 def collectIncome(gameData, nation):
     revByTerr = calcRevByTerr(gameData, nation)
-    revenue = sum(revByTerr.values())
+    revenue = round(sum(revByTerr.values()), 2)
+    balance = round(nation["Balance"] + revenue, 2)
 
-    return [
+    gameData.updateNation(
+        nation["Name"],
         {
-            "table": "nations",
-            "where": {
-                "Name": nation["Name"]
-            },
-            "changes": {
-                "Balance": Operation("add", revenue)
-            }
+            "Balance": nation["Balance"] + revenue
         }
-    ]
+    )
+
+    return {"Income": revenue, "Balance": balance}
