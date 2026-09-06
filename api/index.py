@@ -39,12 +39,27 @@ security = HTTPBearer()
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), discord_id: str | None = Header(None)):
     token = credentials.credentials
     if token == BOT_TOKEN:
-        source = "bot"
         if discord_id is None:
-            raise HTTPException( status_code=400, detail="Discord ID required")
+            return {
+                "id": None,
+                "auth_user_id": None,
+                "discord_id": None,
+                "admin": False,
+                "nation": None,
+                "source": "bot"
+            }
+
         res = supabase.table("players").select("id, auth_user_id, discord_id, admin").eq("discord_id", discord_id).execute()
+        if not res.data:
+            return {
+                "id": None,
+                "auth_user_id": None,
+                "discord_id": discord_id,
+                "admin": False,
+                "nation": None,
+                "source": "bot"
+            }
     else:
-        source = "website"
         try:
             user = supabase.auth.get_user(token)
         except Exception:
@@ -55,14 +70,15 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
 
         res = supabase.table("players").select("id, auth_user_id, discord_id, admin").eq("auth_user_id", user.user.id).execute()
 
-    if not res.data:
-        raise HTTPException(status_code=404, detail="Player not found")
+        if not res.data:
+            raise HTTPException(status_code=404, detail="Player not found")
 
     player = res.data[0]
     nation_res = supabase.table("nations").select("Name").eq("ruler", player["id"]).execute()
     player["nation"] = nation_res.data[0]["Name"] if nation_res.data else None
-    player["source"] = source
+    player["source"] = "bot" if token == BOT_TOKEN else "website"
     return player
+
 
 @app.get("/me")
 def getMe(user = Depends(get_current_user)):
