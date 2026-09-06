@@ -1,7 +1,7 @@
 from supabase import create_client
 import os
 import requests
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
@@ -17,6 +17,7 @@ load_dotenv()
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_KEY"]
+BOT_TOKEN = os.environ["BOT_TOKEN"]
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 gameData = GameData(supabase)
@@ -32,43 +33,31 @@ app.add_middleware(
 
 security = HTTPBearer()
 
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), discord_id: str | None = Header(None)):
     token = credentials.credentials
+    if token == BOT_TOKEN:
+        if discord_id is None:
+            raise HTTPException( status_code=400, detail="Discord ID required")
+        res = supabase.table("players").select("id, auth_user_id, discord_id, admin").eq("discord_id", discord_id).execute()
+    else:
+        try:
+            user = supabase.auth.get_user(token)
+        except Exception:
+            raise HTTPException(status_code=401, detail="Invalid or expired authentication token")
 
-    try:
-        user = supabase.auth.get_user(token)
-    except Exception:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid or expired authentication token"
-        )
+        if not user or not user.user:
+            raise HTTPException(status_code=401, detail="Invalid authentication")
 
-    if not user or not user.user:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid authentication"
-        )
+        res = supabase.table("players").select("id, auth_user_id, discord_id, admin").eq("auth_user_id", user.user.id).execute()
 
-    auth_user_id = user.user.id
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Player not found")
 
-    res = (
-        supabase
-        .table("players")
-        .select("id, auth_user_id, discord_id, admin")
-        .eq("auth_user_id", auth_user_id)
-        .execute()
-    )
-    
-    nation_res = (
-        supabase
-        .table("nations")
-        .select("Name")
-        .eq("ruler", res.data[0]["id"])
-        .execute()
-    )
-    res.data[0]["nation"] = nation_res.data[0]["Name"] if nation_res.data else None
+    player = res.data[0]
+    nation_res = supabase.table("nations").select("Name").eq("ruler", player["id"]).execute()
+    player["nation"] = nation_res.data[0]["Name"] if nation_res.data else None
 
-    return res.data[0]
+    return player
 
 @app.get("/me")
 def getMe(user = Depends(get_current_user)):
