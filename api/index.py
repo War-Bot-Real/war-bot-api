@@ -6,6 +6,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from pydantic import BaseModel
+import secrets
+import string
+from datetime import datetime, timedelta, timezone
 
 from api.game_logic.income import collectIncome, calcRevByTerr
 from api.game_logic.shop import buyItem
@@ -418,3 +421,26 @@ def ally(request: AllyRequest, user=Depends(get_current_user)):
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+      
+def generateDiscordLinkCode():
+    alphabet = string.ascii_uppercase + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(8))
+    
+@app.post("/discord/link/generate")
+def startDiscordLink(user=Depends(get_current_user)):
+    
+    player_id = user["id"]
+    supabase.table("discord_link_codes").delete().eq("player_id", player_id).execute()
+    
+    code = generateDiscordLinkCode()
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+    supabase .table("discord_link_codes").insert({
+      "code": code,
+      "player_id": player_id,
+      "expires_at": expires_at.isoformat()
+    }).execute()
+
+    return {
+        "code": code,
+        "expires_at": expires_at.isoformat()
+    }
