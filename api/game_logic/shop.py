@@ -15,13 +15,13 @@ def buyItem(nation, gameData, item, quantity):
         raise ValueError("Not enough money")
 
     inventory = nation["Inventory"].copy()
-
     inventory[item] = inventory.get(item, 0) + quantity
-
+    newbalance = nation["Balance"] - price
+    
     gameData.updateNation(
         nation["Name"],
         {
-            "Balance": nation["Balance"] - price,
+            "Balance": newbalance,
             "Inventory": inventory
         }
     )
@@ -29,5 +29,6 @@ def buyItem(nation, gameData, item, quantity):
     return {
         "item": item,
         "quantity": quantity,
-        "price": price
+        "price": price,
+        "New Balance": newbalance
     }
