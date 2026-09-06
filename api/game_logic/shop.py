@@ -1,5 +1,3 @@
-from api.models.Operation import Operation
-
 def buyItem(nation, gameData, item, quantity):
     shop = gameData.getShop()
     price = None

@@ -80,6 +80,31 @@ class GameData:
 
       return newcount
     
+    # ---------- Interactions ----------
+    def getInteraction(self, fromNation, toNation, interactionType):
+      res = self.supabase.table("interactions").select("*").eq("from", fromNation).eq("to", toNation).eq("type", interactionType).execute()
+
+      if res.data:
+          return res.data[0]
+
+      return None
+    
+    def createInteraction(self, fromNation, toNation, interactionType, details=None):
+      if details is None:
+          details = {}
+
+      res = self.supabase.table("interactions").insert({
+              "from": fromNation,
+              "to": toNation,
+              "type": interactionType,
+              "details": details
+          }).execute()
+
+      return res.data[0]
+    
+    def deleteInteraction(self, interactionId):
+      self.supabase.table("interactions").delete().eq("id", interactionId).execute()
+    
     # ---------- Game Data ----------
 
     def getDefaultGameData(self):

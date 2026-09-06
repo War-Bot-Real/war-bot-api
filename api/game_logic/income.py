@@ -1,5 +1,3 @@
-from api.models.Operation import Operation
-
 economicActivity = {
   "Unintegrated": 0.5,
   "Radar Station": 1.00,

@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from api.game_logic.income import collectIncome, calcRevByTerr
 from api.game_logic.shop import buyItem
 from api.game_logic.army import deployUnit
+from api.game_logic.diplomacy import allyNation
 from api.gameData import GameData
 
 load_dotenv()
@@ -407,3 +408,24 @@ def deploy(request: DeployRequest, user=Depends(get_current_user)):
         "success": True,
         "result": result
     }
+
+class AllyRequest(BaseModel):
+    nation: str
+
+@app.post("/ally")
+def ally(request: AllyRequest, user=Depends(get_current_user)):
+    checkNation(user)
+
+    try:
+        nation = gameData.getNation(user["nation"])
+        otherNation = gameData.getNation(request.nation)
+
+        result = allyNation(gameData, nation, otherNation)
+
+        return {
+            "success": True,
+            "result": result
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
