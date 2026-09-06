@@ -39,10 +39,12 @@ security = HTTPBearer()
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), discord_id: str | None = Header(None)):
     token = credentials.credentials
     if token == BOT_TOKEN:
+        source = "bot"
         if discord_id is None:
             raise HTTPException( status_code=400, detail="Discord ID required")
         res = supabase.table("players").select("id, auth_user_id, discord_id, admin").eq("discord_id", discord_id).execute()
     else:
+        source = "website"
         try:
             user = supabase.auth.get_user(token)
         except Exception:
@@ -59,7 +61,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     player = res.data[0]
     nation_res = supabase.table("nations").select("Name").eq("ruler", player["id"]).execute()
     player["nation"] = nation_res.data[0]["Name"] if nation_res.data else None
-
+    player["source"] = source
     return player
 
 @app.get("/me")
