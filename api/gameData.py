@@ -1,7 +1,6 @@
 import requests
 from supabase import Client
 
-
 class GameData:
 
     def __init__(self, supabase: Client):

@@ -1,5 +1,3 @@
-from api.models.Operation import Operation
-
 def quadify(arg):
   if type(arg) == type(str()):
     if not arg.isdigit():
