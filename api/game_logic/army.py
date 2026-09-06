@@ -17,8 +17,8 @@ def getUnitData(gameData, unittype):
   for domain in allunits:
     for unit in allunits[domain]:
       if unit.lower() == unittype.lower() or allunits[domain][unit]["Short Form"] == unittype.upper(): 
-        return allunits[domain][unit]
-  return None
+        return unit, allunits[domain][unit]
+  return None, None
 
 def getDomain(gameData, unittype):
   allunits = gameData.getDefaultGameData()["Units"]
@@ -47,11 +47,11 @@ def deployUnit(gameData, nation, territory, unit, quantity):
         raise ValueError("This territory has not been integrated yet")
 
     # Find unit
-    unitdata = getUnitData(gameData, unit)
+    unit, unitdata = getUnitData(gameData, unit)
     if unitdata is None:
         raise ValueError("Invalid Unit Type")
 
-    inventoryName = unitdata
+    inventoryName = unit
 
     # if unitdata["Each"] > 1:
     #     inventoryName += " Division"
@@ -61,8 +61,7 @@ def deployUnit(gameData, nation, territory, unit, quantity):
     if nation["Inventory"][inventoryName] < quantity:
         raise ValueError(f"Nation does not have enough {inventoryName}")
 
-    unitDomain = getDomain(gameData, unitdata)
-    
+    unitDomain = getDomain(gameData, unit)
     
     if unitDomain == "Naval":
         # Coast occupant logic will be implemented later
@@ -106,7 +105,6 @@ def deployUnit(gameData, nation, territory, unit, quantity):
 
     return {
         "unit": unitid,
-        "type": unitdata,
         "quantity": quantity * unitdata["Each"],
         "location": territory["Name"]
     }
