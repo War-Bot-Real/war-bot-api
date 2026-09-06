@@ -58,12 +58,6 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         .eq("auth_user_id", auth_user_id)
         .execute()
     )
-
-    if not res.data:
-        raise HTTPException(
-            status_code=403,
-            detail="Authenticated user is not a registered player"
-        )
     
     nation_res = (
         supabase
@@ -361,8 +355,7 @@ def collect(user = Depends(get_current_user)):
 
 @app.get("/income/view")
 def income(user = Depends(get_current_user)):
-    if user["nation"] is None:
-        raise HTTPException(status_code=403, detail="User does not control a nation")
+    checkNation(user)
 
     res = supabase.table("nations").select("*").eq("ruler", user["id"]).execute()
 
@@ -384,9 +377,7 @@ class BuyRequest(BaseModel):
     
 @app.post("/buy")
 def buy(request: BuyRequest, user = Depends(get_current_user)):
-
-    if user["nation"] is None:
-        raise HTTPException(status_code=403, detail="User does not control a nation")
+    checkNation(user)
     
     if request.quantity < 1:
         raise HTTPException(status_code=400, detail="Quantity must be greater than 0")
@@ -414,9 +405,7 @@ class DeployRequest(BaseModel):
     
 @app.post("/deploy")
 def deploy(request: DeployRequest, user = Depends(get_current_user)):
-
-    if user["nation"] is None:
-        raise HTTPException(status_code=403, detail="User does not control a nation")
+    checkNation(user)
     
     if request.quantity < 1:
         raise HTTPException(status_code=400, detail="Quantity must be greater than 0")
