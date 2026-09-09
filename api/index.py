@@ -124,6 +124,8 @@ def getNation(nation: str, user = Depends(get_current_user)):
     res = supabase.table("nations").select("*").eq("Name", nation).execute()
   elif user["nation"] == nation:
     res = supabase.table("nations").select("*").eq("Name", nation).execute()
+  elif user.get("source") == "bot":
+    res = supabase.table("nations").select(", ".join(nationPublicFields + ["Channel"])).eq("Name", nation).execute()
   else:
     res = supabase.table("nations").select(", ".join(nationPublicFields)).eq("Name", nation).execute()
   
