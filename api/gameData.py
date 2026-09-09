@@ -104,6 +104,21 @@ class GameData:
     def deleteInteraction(self, interactionId):
       self.supabase.table("interactions").delete().eq("id", interactionId).execute()
     
+    # ---------- Messages ----------
+    
+    def createMessage(self, sender, recipient, messageType, message):
+        return (
+            self.supabase
+            .table("messages")
+            .insert({
+                "sender": sender,
+                "recipient": recipient,
+                "type": messageType,
+                "message": message
+            })
+            .execute()
+        )
+    
     # ---------- Game Data ----------
 
     def getDefaultGameData(self):
