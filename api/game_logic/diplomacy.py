@@ -17,6 +17,7 @@ def allyNation(gameData, nation, otherNation):
 
         nationDiplomacy = nation["Diplomacy"].copy()
         nationDiplomacy["Allies"].append(otherNation["Name"])
+
         gameData.updateNation(
             nation["Name"],
             {
@@ -26,6 +27,7 @@ def allyNation(gameData, nation, otherNation):
 
         otherDiplomacy = otherNation["Diplomacy"].copy()
         otherDiplomacy["Allies"].append(nation["Name"])
+
         gameData.updateNation(
             otherNation["Name"],
             {
@@ -33,12 +35,18 @@ def allyNation(gameData, nation, otherNation):
             }
         )
 
+        msg = f'{nation["Name"]} has accepted your offer of an alliance. Good luck to you both, and may this alliance last.'
+        gameData.createMessage(nation["Name"], otherNation["Name"], "ally", msg)
+
         return {
             "accepted": True,
             "nation": otherNation["Name"]
         }
 
     gameData.createInteraction(nation["Name"], otherNation["Name"], "ally")
+
+    msg = f'{nation["Name"]} has requested an alliance with you. If you accept, you will be called into all defensive wars {nation["Name"]} takes part in.'
+    gameData.createMessage( nation["Name"], otherNation["Name"], "ally", msg)
 
     return {
         "accepted": False,
