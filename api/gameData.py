@@ -87,6 +87,12 @@ class GameData:
 
       return newcount
     
+    # ---------- Treaties ----------
+    
+    def createTreaty(self, treaty):
+        res = self.supabase.table("treaties").insert(treaty).execute()
+        return res.data[0]
+    
     # ---------- Interactions ----------
     def getInteraction(self, fromNation, toNation, interactionType):
       res = self.supabase.table("interactions").select("*").eq("from", fromNation).eq("to", toNation).eq("type", interactionType).execute()
@@ -111,6 +117,22 @@ class GameData:
     
     def deleteInteraction(self, interactionId):
       self.supabase.table("interactions").delete().eq("id", interactionId).execute()
+    
+    def getWars(self):
+        res = self.supabase.table("interactions").select("*").eq("type", "war").execute()
+        return res.data
+
+    def atWar(self, nation1, nation2):
+        for war in self.getWars():
+            aggressors = war["details"]["aggressors"]
+            defenders = war["details"]["defenders"]
+
+            if nation1 in aggressors and nation2 in defenders:
+                return True
+            if nation2 in aggressors and nation1 in defenders:
+                return True
+
+        return False
     
     # ---------- Messages ----------
     

@@ -14,7 +14,7 @@ from api.gameData import GameData
 from api.game_logic.income import collectIncome, calcRevByTerr
 from api.game_logic.shop import buyItem
 from api.game_logic.army import deployUnit
-from api.game_logic.diplomacy import allyNation
+from api.game_logic.diplomacy import allyNation, declareWar
 from api.game_logic.admin import registerNation
 
 load_dotenv()
@@ -522,3 +522,22 @@ def register(data: RegisterRequest, user = Depends(get_current_user)):
 @app.get("/gametime")
 def getGameTime():
   return gameData.gameTime()
+
+class DeclareWarRequest(BaseModel):
+    nation: str
+  
+@app.post("/declarewar")
+def declareWarEndpoint(request: DeclareWarRequest, user=Depends(get_current_user)):
+    checkNation(user)
+
+    try:
+        nation = gameData.getNation(user["nation"])
+        target = gameData.getNation(request.nation)
+        result = declareWar(gameData, nation, target)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {
+        "success": True,
+        "result": result
+    }
