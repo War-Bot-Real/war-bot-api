@@ -10,11 +10,12 @@ import secrets
 import string
 from datetime import datetime, timedelta, timezone
 
+from api.gameData import GameData
 from api.game_logic.income import collectIncome, calcRevByTerr
 from api.game_logic.shop import buyItem
 from api.game_logic.army import deployUnit
 from api.game_logic.diplomacy import allyNation
-from api.gameData import GameData
+from api.game_logic.admin import registerNation
 
 load_dotenv()
 
@@ -503,3 +504,18 @@ def confirmDiscordLink(request: DiscordLinkRequest, user=Depends(get_current_use
         "success": True,
         "message": "Discord account linked successfully"
     }
+
+class RegisterRequest(BaseModel):
+    nation: str
+    ruler: int
+    channel: int
+
+@app.post("/register")
+def register(data: RegisterRequest, user = Depends(get_current_user)):
+    if not user["admin"]:
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    nation = gameData.getNation(data.nation)
+    result = registerNation(gameData, nation, data.ruler, data.channel)
+
+    return result
