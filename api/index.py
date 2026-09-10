@@ -233,21 +233,18 @@ def getDistance(from_territory: str, to_territory: str):
 
 @app.get("/players")
 def getPlayers():
-    res = (
-        supabase
-        .table("nations")
-        .select("Name, Flag, Ideology, ruler")
-        .execute()
-    )
+    data = gameData.getDefaultGameData()
+    show_ids = data["Settings"]["Admin"]["Anonymous Players"]["Value"]
+
+    res = supabase.table("nations").select("Name, Flag, Ideology, ruler").execute()
 
     players = []
-
     for nation in res.data:
         players.append({
             "Nation": nation["Name"],
             "Flag": nation["Flag"],
             "Ideology": nation["Ideology"],
-            "Ruler": nation["ruler"]
+            "Ruler": nation["ruler"] if show_ids else None
         })
 
     return players
