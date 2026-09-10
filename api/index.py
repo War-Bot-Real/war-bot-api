@@ -384,9 +384,9 @@ class BuyRequest(BaseModel):
 @app.post("/buy")
 def buy(request: BuyRequest, user=Depends(get_current_user)):
     checkNation(user)
-    nation = gameData.getNation(user["nation"])
 
     try:
+        nation = gameData.getNation(user["nation"])
         result = buyItem(nation, gameData, request.item, request.quantity)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
