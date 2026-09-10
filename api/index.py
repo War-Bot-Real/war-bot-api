@@ -125,6 +125,8 @@ def getNation(nation: str, user = Depends(get_current_user)):
     res = supabase.table("nations").select("*").eq("Name", nation).execute()
   elif user["nation"] == nation:
     res = supabase.table("nations").select("*").eq("Name", nation).execute()
+  elif user.get("source") == "bot":
+    res = supabase.table("nations").select(", ".join(nationPublicFields + ["Channel"])).eq("Name", nation).execute()
   else:
     res = supabase.table("nations").select(", ".join(nationPublicFields)).eq("Name", nation).execute()
   
@@ -383,9 +385,9 @@ class BuyRequest(BaseModel):
 @app.post("/buy")
 def buy(request: BuyRequest, user=Depends(get_current_user)):
     checkNation(user)
-    nation = gameData.getNation(user["nation"])
 
     try:
+        nation = gameData.getNation(user["nation"])
         result = buyItem(nation, gameData, request.item, request.quantity)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

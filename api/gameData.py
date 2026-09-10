@@ -9,18 +9,21 @@ class GameData:
     # ---------- Nations ----------
 
     def getNation(self, nationName):
-        res = (
-            self.supabase
-            .table("nations")
-            .select("*")
-            .eq("Name", nationName)
-            .execute()
-        )
+        res = self.supabase.table("nations").select("*").execute()
 
-        if not res.data:
+        exact = [nation for nation in res.data if nation["Name"].lower() == nationName.lower()]
+        if exact:
+            return exact[0]
+
+        matches = [nation for nation in res.data if nationName.lower() in nation["Name"].lower()]
+
+        if not matches:
             raise ValueError(f"Nation '{nationName}' not found")
 
-        return res.data[0]
+        if len(matches) > 1:
+            raise ValueError(f"Multiple nations found: {', '.join(n['Name'] for n in matches)}")
+          
+        return matches[0]
 
     def updateNation(self, nationName, changes):
         return (
