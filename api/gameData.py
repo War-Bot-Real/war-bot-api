@@ -1,5 +1,10 @@
 import requests
 from supabase import Client
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from supabase import Client
+
+EPOCH = datetime(1970, 1, 1, tzinfo=ZoneInfo("America/Toronto"))
 
 class GameData:
 
@@ -156,5 +161,21 @@ class GameData:
 
     # ---------- Game Time ----------
 
+    def gameSeconds(self, date):
+        data = self.getDefaultGameData()
+        activeStart = int(data["Settings"]["Admin"]["Truce End"]["Value"])
+        activeEnd = int(data["Settings"]["Admin"]["Truce Start"]["Value"])
+
+        days = (date.date() - EPOCH.date()).days
+        activeSecsPerDay = (24 - activeStart + activeEnd) * 3600
+        seconds = days * activeSecsPerDay
+
+        if date.hour >= activeStart:
+            seconds += (date.hour - activeStart) * 3600 + date.minute * 60 + date.second
+        elif date.hour < activeEnd:
+            seconds += (24 - activeStart + date.hour) * 3600 + date.minute * 60 + date.second
+
+        return seconds
+
     def gameTime(self):
-        return 100
+        return self.gameSeconds(datetime.now(ZoneInfo("America/Toronto")))

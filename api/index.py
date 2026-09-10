@@ -518,3 +518,7 @@ def register(data: RegisterRequest, user = Depends(get_current_user)):
     result = registerNation(gameData, nation, data.ruler, data.channel)
 
     return result
+
+@app.get("/gametime")
+def getGameTime():
+  return gameData.gameTime()
