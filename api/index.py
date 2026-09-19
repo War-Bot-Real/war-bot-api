@@ -130,7 +130,7 @@ def getNation(nation: str, user = Depends(get_current_user)):
   else:
     res = supabase.table("nations").select(", ".join(nationPublicFields)).eq("Name", nation).execute()
   
-  return res.data
+  return res.data[0]
 
 @app.get("/territories/{nation}")
 def getNationTerr(nation: str):

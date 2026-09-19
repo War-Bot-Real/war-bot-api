@@ -149,6 +149,11 @@ class GameData:
         self.broadcastMessage(result)
 
         return result
+      
+    def broadcastMessage(self, message):
+      topic = f"{message['recipient']}:events" if message["recipient"] else "world:events"
+
+      broadcast(topic, message["type"], message)
     
     # ---------- Game Data ----------
 
@@ -202,8 +207,3 @@ class GameData:
 
     def gameTime(self):
         return self.gameSeconds(datetime.now(ZoneInfo("America/Toronto")))
-      
-    def broadcastMessage(self, message):
-      topic = f"{message['recipient']}:events" if message["recipient"] else "world:events"
-
-      broadcast(topic, message["type"], message)
