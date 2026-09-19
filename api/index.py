@@ -313,6 +313,7 @@ def shop():
 def checkNation(user):
   if user["nation"] is None:
     raise HTTPException(status_code=403, detail="User is not a nation.")
+  return user["nation"]
 
 @app.patch("/settax/{rate}")
 def settax(rate: int, user = Depends(get_current_user)):
@@ -541,3 +542,18 @@ def declareWarEndpoint(request: DeclareWarRequest, user=Depends(get_current_user
         "success": True,
         "result": result
     }
+
+@app.get("/messages")
+def getMessages(user=Depends(get_current_user)):
+  toAll = supabase.table("messages").select("*").eq("recipient", None).execute()
+  
+  if user["nation"] is None:
+    return toAll.data
+  
+  recieved = supabase.table("messages").select("*").eq("recipient", user["nation"]).execute()
+  sent = supabase.table("messages").select("*").eq("sender", user["nation"]).execute()
+  
+  return {
+    "success": True,
+    "result": toAll.data + recieved.data + sent.data
+  }
