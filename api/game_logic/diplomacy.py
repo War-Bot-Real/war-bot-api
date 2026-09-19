@@ -43,7 +43,7 @@ def allyNation(gameData, nation, otherNation):
         )
 
         msg = f'{nation["Name"]} has accepted your offer of an alliance. Good luck to you both, and may this alliance last.'
-        gameData.createMessage(nation["Name"], otherNation["Name"], "ally", msg)
+        gameData.createMessage(None, otherNation["Name"], "ally", msg)
 
         return {
             "accepted": True,
@@ -53,7 +53,7 @@ def allyNation(gameData, nation, otherNation):
     gameData.createInteraction(nation["Name"], otherNation["Name"], "ally")
 
     msg = f'{nation["Name"]} has requested an alliance with you. If you accept, you will be called into all defensive wars {nation["Name"]} takes part in.'
-    gameData.createMessage( nation["Name"], otherNation["Name"], "ally", msg)
+    gameData.createMessage(None, otherNation["Name"], "ally", msg)
 
     return {
         "accepted": False,
@@ -113,7 +113,15 @@ def declareWar(gameData, nation, target):
         gameData.updateNation(target["Name"], {
             "Diplomacy": targetDiplomacy
         })
+        breakmsg = ", breaking your non-aggression pact" if napBroken else ""
 
+    gameData.createMessage(None, target["Name"], "war", f"Alert! {nation['Name']} has declared war on {target['Name']}{breakmsg}!")
+
+    for allyName in target["Diplomacy"]["Allies"]:
+        gameData.createMessage(None, allyName, "war", f"You have been called into the {nation['Demonym']}-{target['Demonym']} War on the side of {target['Name']}!")
+
+    gameData.createMessage(None, None, "news", f"{nation['Name']} has declared war on {target['Name']}!")
+    
     gameData.updateNation(nation["Name"], {
         "Political Power": nation["Political Power"] - ppCost,
         "Diplomacy": nationDiplomacy
