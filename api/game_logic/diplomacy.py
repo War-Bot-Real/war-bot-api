@@ -88,22 +88,19 @@ def declareWar(gameData, nation, target):
 
     defenders = [target["Name"]] + target["Diplomacy"]["Allies"]
 
-    treatyName = createWhitePeaceTreaty(gameData, nation, target)
+    # treatyName = createWhitePeaceTreaty(gameData, nation, target)
+    treatyName = "" #remove once testing done
     warDetails = {
         "aggressors": [nation["Name"]],
         "defenders": defenders,
         "treaties": [treatyName]
     }
 
-    gameData.createInteraction(
-        nation["Name"],
-        target["Name"],
-        "war",
-        warDetails
-    )
+    # gameData.createInteraction(nation["Name"], target["Name"], "war", warDetails)
 
     nationDiplomacy = nation["Diplomacy"].copy()
 
+    breakmsg = ""
     if napBroken:
         nationDiplomacy["Non-Aggression Pacts"].remove(target["Name"])
 
