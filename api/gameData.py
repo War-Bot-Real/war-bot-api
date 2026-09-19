@@ -3,6 +3,7 @@ from supabase import Client
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from supabase import Client
+from api.realtime import broadcast
 
 EPOCH = datetime(1970, 1, 1, tzinfo=ZoneInfo("America/Toronto"))
 
@@ -137,17 +138,17 @@ class GameData:
     # ---------- Messages ----------
     
     def createMessage(self, sender, recipient, messageType, message):
-        return (
-            self.supabase
-            .table("messages")
-            .insert({
-                "sender": sender,
-                "recipient": recipient,
-                "type": messageType,
-                "message": message
-            })
-            .execute()
-        )
+        res = self.supabase.table("messages").insert({
+            "sender": sender,
+            "recipient": recipient,
+            "type": messageType,
+            "message": message
+        }).execute()
+
+        result = res.data[0]
+        self.broadcastMessage(result)
+
+        return result
     
     # ---------- Game Data ----------
 
@@ -201,3 +202,8 @@ class GameData:
 
     def gameTime(self):
         return self.gameSeconds(datetime.now(ZoneInfo("America/Toronto")))
+      
+    def broadcastMessage(self, message):
+      topic = f"{message['recipient']}:events" if message["recipient"] else "world:events"
+
+      broadcast(topic, message["type"], message)
