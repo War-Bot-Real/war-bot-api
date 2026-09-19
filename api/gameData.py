@@ -153,7 +153,12 @@ class GameData:
     def broadcastMessage(self, message):
       topic = f"{message['recipient']}:events" if message["recipient"] else "world:events"
 
-      broadcast(topic, message["type"], message)
+      if message["type"] in ["news", "message"]:
+        event = message["type"]
+      else:
+        event = "notification"
+
+      broadcast(topic, event, message)
     
     # ---------- Game Data ----------
 
