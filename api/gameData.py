@@ -32,6 +32,7 @@ class GameData:
         return matches[0]
 
     def updateNation(self, nationName, changes):
+        # changes is a dict of column names and their new values, e.g. {"Balance": 1000, "last": {...}}
         return (
             self.supabase
             .table("nations")

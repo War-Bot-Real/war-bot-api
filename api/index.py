@@ -313,7 +313,7 @@ def shop():
 def checkNation(user):
   if user["nation"] is None:
     raise HTTPException(status_code=403, detail="User is not a nation.")
-  return user["nation"]
+  return gameData.getNation(user["nation"])
 
 @app.patch("/settax/{rate}")
 def settax(rate: int, user = Depends(get_current_user)):
@@ -557,3 +557,34 @@ def getMessages(user=Depends(get_current_user)):
     "success": True,
     "result": toAll.data + recieved.data + sent.data
   }
+
+@app.get("/last/read")
+def getMessages(user=Depends(get_current_user)):
+    nation = checkNation(user)
+
+    if "read" not in nation["last"]:
+        nation["last"]["read"] = {}
+
+    for i in ["notifications", "messages", "news"]:
+        if i not in nation["last"]["read"]:
+            nation["last"]["read"][i] = 0
+
+    gameData.updateNation(nation["Name"], {"last": nation["last"]})
+
+    return nation["last"]["read"]
+
+@app.get("/read/{category}")
+def readMessage(category: str, user=Depends(get_current_user)):
+    nation = checkNation(user)
+
+    if category not in ["notifications", "messages", "news"]:
+        raise HTTPException(status_code=400, detail="Invalid Category. Valid categories are notifications, messages, and news.")
+
+    if "read" not in nation["last"]:
+        nation["last"]["read"] = {}
+
+    nation["last"]["read"][category] = datetime.now(timezone.utc).isoformat()
+
+    gameData.updateNation(nation["Name"], {"last": nation["last"]})
+
+    return nation["last"]
