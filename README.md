@@ -1,4 +1,4 @@
-# War Bot Web
+# War Bot API
 
 This is the API for the grand strategy game called War Bot. It is the source of truth for the game state, and contains all game logic.
 
@@ -63,10 +63,12 @@ World events use the `world:events` channel.
 
 Realtime is used for delivering new events to connected clients, while the database remains the source of truth and can be queried through the API for message history.
 
-### Discord Bot
+### Client Authentication
 
-The Discord bot remains a fully supported client of the game.
+The API supports both the web client and the Discord bot as clients. Although both use the same API and game logic, the backend needs to distinguish between them for authentication and authorization.
 
-Instead of maintaining a separate game state, the bot communicates with the same API used by the web client. This allows players to interact with the same game through either Discord or the website.
+Web requests are authenticated using a **Supabase Auth access token**. The API validates the token with Supabase and uses the associated `auth_user_id` to find the player's record in the `players` table.
 
-The long-term goal is for the API to contain all authoritative game logic, allowing additional clients to be added without duplicating the game's rules.
+Discord bot requests use a custom, private **BOT_TOKEN** instead. (This is not the same bot token used to run the bot). The bot also sends the player's Discord ID with the request. The API uses the Discord ID to find the corresponding player in the `players` table.
+
+This allows the same API endpoint to handle requests from both clients while using the appropriate authentication method.
