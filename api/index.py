@@ -573,10 +573,11 @@ def getMessages(user=Depends(get_current_user)):
 
     return nation["last"]["read"]
 
-@app.get("/read/{category}")
+@app.post("/read/{category}")
 def readMessage(category: str, user=Depends(get_current_user)):
     nation = checkNation(user)
-
+    category = category.lower()
+    
     if category not in ["notifications", "messages", "news"]:
         raise HTTPException(status_code=400, detail="Invalid Category. Valid categories are notifications, messages, and news.")
 
@@ -588,3 +589,19 @@ def readMessage(category: str, user=Depends(get_current_user)):
     gameData.updateNation(nation["Name"], {"last": nation["last"]})
 
     return nation["last"]
+
+@app.get("/wars")
+def currentWars():
+    wars = gameData.getWars()
+    response = []
+    for i in wars:
+      war = {}
+      attacker = gameData.getNation(i["from"])
+      defender = gameData.getNation(i["to"])
+      war["name"] = f"{attacker["Demonym"]}-{defender["Demonym"]} War"
+      war["aggressors"] = i["details"]["aggressors"]
+      war["defenders"] = i["details"]["defenders"]
+      response.append(war)
+    return response
+      
+      
