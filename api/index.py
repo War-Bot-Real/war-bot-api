@@ -614,7 +614,7 @@ def rankNations(category: str):
     raise HTTPException(status_code=400, detail=str(e))
 
 class GiveRequest(BaseModel):
-  nation: string
+  nation: str
   money: int
   message: str = ""
 
@@ -622,7 +622,7 @@ class GiveRequest(BaseModel):
 def give(request: GiveRequest, user=Depends(get_current_user)):
   nation = checkNation(user["Nation"])
   try:
-    giveMoney(gameData, nation, gameData.getNation(request.nation), request.money, request.message)  
+    return giveMoney(gameData, nation, gameData.getNation(request.nation), request.money, request.message)  
   except ValueError as e:
     raise HTTPException(status_code=400, detail=str(e))
   
