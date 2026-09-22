@@ -620,7 +620,7 @@ class GiveRequest(BaseModel):
 
 @app.post("/give")
 def give(request: GiveRequest, user=Depends(get_current_user)):
-  nation = checkNation(user["Nation"])
+  nation = checkNation(user)
   try:
     return giveMoney(gameData, nation, gameData.getNation(request.nation), request.money, request.message)  
   except ValueError as e:
