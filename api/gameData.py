@@ -42,15 +42,14 @@ class GameData:
         )
 
     # ---------- Territories ----------
+    
+    def getAllTerr(self):
+        res = self.supabase.table("territories").select("*").execute()
+
+        return res.data
 
     def getNationTerr(self, nationName):
-        res = (
-            self.supabase
-            .table("territories")
-            .select("*")
-            .eq("Nation", nationName)
-            .execute()
-        )
+        res = self.supabase.table("territories").select("*").eq("Nation", nationName).execute()
 
         return res.data
 

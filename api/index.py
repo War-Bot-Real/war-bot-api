@@ -16,6 +16,7 @@ from api.game_logic.shop import buyItem
 from api.game_logic.army import deployUnit
 from api.game_logic.diplomacy import allyNation, declareWar
 from api.game_logic.admin import registerNation
+from api.game_logic.top import top
 
 load_dotenv()
 
@@ -604,4 +605,9 @@ def currentWars():
       response.append(war)
     return response
       
-      
+@app.get("/top/{category}")
+def rankNations(category: str):
+  try:
+    return top(gameData, category.lower())
+  except ValueError as e:
+    raise HTTPException(status_code=400, detail=str(e))
