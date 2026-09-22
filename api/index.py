@@ -17,6 +17,7 @@ from api.game_logic.army import deployUnit
 from api.game_logic.diplomacy import allyNation, declareWar
 from api.game_logic.admin import registerNation
 from api.game_logic.top import top
+from api.game_logic.give import giveMoney
 
 load_dotenv()
 
@@ -611,3 +612,17 @@ def rankNations(category: str):
     return top(gameData, category.lower())
   except ValueError as e:
     raise HTTPException(status_code=400, detail=str(e))
+
+class GiveRequest(BaseModel):
+  nation: string
+  money: int
+  message: str = ""
+
+@app.post("/give")
+def give(request: GiveRequest, user=Depends(get_current_user)):
+  nation = checkNation(user["Nation"])
+  try:
+    giveMoney(gameData, nation, gameData.getNation(request.nation), request.money, request.message)  
+  except ValueError as e:
+    raise HTTPException(status_code=400, detail=str(e))
+  
