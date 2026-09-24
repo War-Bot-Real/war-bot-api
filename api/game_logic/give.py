@@ -9,6 +9,7 @@ def giveMoney(gameData, nation, recipient, amount, message=""):
         raise ValueError(f"You require ${amount - nation['Balance']} more to give that much money")
 
     if "Blocked" in recipient["Diplomacy"]:
+      
       if nation["Name"] in recipient["Diplomacy"]["Blocked"]:
           raise ValueError(f"{recipient['Name']} has blocked you, and you are not allowed to send messages or money to them")
 
@@ -21,9 +22,9 @@ def giveMoney(gameData, nation, recipient, amount, message=""):
     })
 
     if len(message) > 0:
-        gameData.createMessage(nation["Name"], recipient["Name"], "message", message)
-
-    gameData.createMessage(None, recipient["Name"], "notification", f"You received ${amount} from {nation['Name']}")
+        gameData.createMessage(nation["Name"], recipient["Name"], "message", message, {"money": amount})
+    else:
+        gameData.createMessage(None, recipient["Name"], "notification", f"{nation["Name"]} sent you ${amount}")
 
     return {
         "recipient": recipient["Name"],

@@ -622,7 +622,10 @@ class GiveRequest(BaseModel):
 def give(request: GiveRequest, user=Depends(get_current_user)):
   nation = checkNation(user)
   try:
-    return giveMoney(gameData, nation, gameData.getNation(request.nation), request.money, request.message)  
+    response = giveMoney(gameData, nation, gameData.getNation(request.nation), request.money, request.message)  
   except ValueError as e:
     raise HTTPException(status_code=400, detail=str(e))
+  
+  response["success"] = True
+  return response
   
