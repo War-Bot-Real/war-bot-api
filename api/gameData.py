@@ -56,20 +56,23 @@ class GameData:
     # ---------- Units ----------
 
     def createUnit(self, unit):
-        return (
-            self.supabase
-            .table("units")
-            .insert(unit)
-            .execute()
-        )
+        return self.supabase.table("units").insert(unit).execute()
+        
+    def getUnit(self, id):
+        query = self.supabase.table("units").select("*").ilike("Name", id)
+        return query.execute().data
+              
+    def getUnits(self, nation=None):
+        query = self.supabase.table("units").select("*")
+
+        if nation is not None:
+            territories = [t["Name"] for t in self.getNationTerr(nation)]
+            query = query.or_(f'Nation.ilike.{nation},Location.in.({",".join(territories)})')
+
+        return query.execute().data
 
     def getUnitCounters(self):
-        res = (
-            self.supabase
-            .table("unitcounters")
-            .select("*")
-            .execute()
-        )
+        res = self.supabase.table("unitcounters").select("*").execute()
 
         return {
             row["id"]: row["count"]
@@ -163,10 +166,7 @@ class GameData:
     # ---------- Game Data ----------
 
     def getDefaultGameData(self):
-        res = self.supabase.storage.from_("info").create_signed_url(
-            "data.json",
-            expires_in=60
-        )
+        res = self.supabase.storage.from_("info").create_signed_url("data.json", expires_in=60)
 
         signed_url = res["signedUrl"]
 

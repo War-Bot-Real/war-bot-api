@@ -24,7 +24,6 @@ def getDomain(gameData, unittype):
     if unittype in allunits[domain]:
       return domain
   return None
-  
 
 def deployUnit(gameData, nation, territory, unit, quantity):
     if not isinstance(quantity, int):
@@ -92,7 +91,7 @@ def deployUnit(gameData, nation, territory, unit, quantity):
     # Create deployed unit
     gameData.createUnit({
         "Name": unitid,
-        "Type": unitdata,
+        "Type": unit,
         "Quantity": quantity * unitdata["Each"],
         "Nation": nation["Name"],
         "Location": territory["Name"],
@@ -105,4 +104,60 @@ def deployUnit(gameData, nation, territory, unit, quantity):
         "unit": unitid,
         "quantity": quantity * unitdata["Each"],
         "location": territory["Name"]
+    }
+
+def getForces(gameData, nation, domain=None, theater=None):
+    masterdata = gameData.getDefaultGameData()
+
+    if domain is not None:
+        for d in masterdata["Units"]:
+            if d.lower() == domain.lower():
+                domain = d
+                break
+        else:
+            raise ValueError("Invalid domain")
+
+    territoryNames = None
+
+    if theater != None:     
+      theaters = nation["Theaters"]
+
+      matches = [t for t in theaters if theater.lower() in t.lower()]
+
+      if not matches:
+          raise ValueError("Invalid theater")
+      if len(matches) > 1:
+          raise ValueError("Multiple theaters found")
+
+      theater = matches[0]
+      territoryNames = theaters[theater]
+
+    units = gameData.getUnits(nation["Name"])
+
+    if domain is not None:
+        units = [u for u in units if getDomain(masterdata, u["Type"]) == domain]
+
+    if territoryNames is not None:
+        units = [u for u in units if u["Location"] in territoryNames]
+
+    territories = {}
+    abroad = {}
+    carriers = {}
+    nationTerritories = [t["Name"] for t in gameData.getNationTerr(nation["Name"])]
+    
+    for unit in units:
+        location = unit["Location"]
+        potentialUnit = gameData.getUnit(location)
+
+        if location in nationTerritories:
+            territories.setdefault(location, []).append(unit)
+        elif potentialUnit != []:
+            carriers.setdefault(potentialUnit[0], []).append(unit)
+        else:
+            abroad.setdefault(location, []).append(unit)
+
+    return {
+        "territories": territories,
+        "abroad": abroad,
+        "carriers": carriers
     }

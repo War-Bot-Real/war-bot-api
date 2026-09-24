@@ -9,11 +9,12 @@ from pydantic import BaseModel
 import secrets
 import string
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from api.gameData import GameData
 from api.game_logic.income import collectIncome, calcRevByTerr
 from api.game_logic.shop import buyItem
-from api.game_logic.army import deployUnit
+from api.game_logic.military import deployUnit, getForces
 from api.game_logic.diplomacy import allyNation, declareWar
 from api.game_logic.admin import registerNation
 from api.game_logic.top import top
@@ -147,20 +148,6 @@ def getNationTerr(nation: str):
         .ilike("Nation", nation)
         .execute()
     )
-
-    return res.data
-
-@app.get("/units/{nation}")
-def getNationTroops(nation: str, user = Depends(get_current_user)):
-    if user["admin"]:
-      res = supabase.table("units").select("*").eq("Nation", nation).execute()
-    elif user["nation"] is not None:
-      if user["nation"] == nation:
-        res = supabase.table("units").select("*").eq("Nation", nation).execute()
-      else:
-        raise HTTPException(status_code=403, detail="You do not have permission to access units from this nation.")
-    else:
-      raise HTTPException(status_code=403, detail="You do not have permission to access units from this nation.")
 
     return res.data
   
@@ -554,10 +541,11 @@ def getMessages(user=Depends(get_current_user)):
   
   recieved = supabase.table("messages").select("*").eq("recipient", user["nation"]).execute()
   sent = supabase.table("messages").select("*").eq("sender", user["nation"]).execute()
+  news = supabase.table("messages").select("*").eq("type", "news").execute()
   
   return {
     "success": True,
-    "result": toAll.data + recieved.data + sent.data
+    "result": toAll.data + recieved.data + sent.data + news.data
   }
 
 @app.get("/last/read")
@@ -628,4 +616,18 @@ def give(request: GiveRequest, user=Depends(get_current_user)):
   
   response["success"] = True
   return response
-  
+
+@app.get("/forces")
+def getForcesEndpoint(domain: Optional[str] = None, theater: Optional[str] = None, user=Depends(get_current_user)):
+    checkNation(user)
+    nation = gameData.getNation(user["nation"])
+
+    try:
+        result = getForces(gameData, nation, domain, theater)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {
+        "success": True,
+        "result": result
+    }  
