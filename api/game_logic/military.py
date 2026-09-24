@@ -161,3 +161,70 @@ def getForces(gameData, nation, domain=None, theater=None):
         "abroad": abroad,
         "carriers": carriers
     }
+
+def mergeUnits(gameData, nation, unitNames):
+    if len(unitNames) < 2:
+        raise ValueError("You must specify at least two units to merge")
+
+    units = []
+    invalid = []
+
+    for name in unitNames:
+        matches = gameData.getUnit(name)
+
+        if not matches:
+            invalid.append(name)
+            continue
+
+        unit = matches[0]
+
+        if unit["Nation"] != nation["Name"]:
+            invalid.append(name)
+            continue
+
+        units.append(unit)
+
+    if invalid:
+        raise ValueError(f"Invalid or unowned units: {', '.join(invalid)}")
+
+    base = units[0]
+    mergeable = []
+    failed = []
+
+    for unit in units[1:]:
+        if (
+            unit["Type"] == base["Type"]
+            and unit["Location"] == base["Location"]
+            and unit["Active"] == base["Active"]
+        ):
+            mergeable.append(unit)
+        else:
+            failed.append(unit["Name"])
+
+    if not mergeable:
+        raise ValueError("No units can be merged. Units must have the same type, location, and active status.")
+    
+    allUnits = gameData.getUnits()
+    for unit in mergeable:
+        for loadedUnit in allUnits:
+            if loadedUnit["Location"] == unit["Name"]:
+                gameData.updateUnit(loadedUnit["Name"], {
+                    "Location": base["Name"]
+                })
+
+    quantity = base["Quantity"] + sum(unit["Quantity"] for unit in mergeable)
+    tiredUntil = max([base["TiredUntil"]] + [unit["TiredUntil"] for unit in mergeable])
+
+    gameData.updateUnit(base["Name"], {
+        "Quantity": quantity,
+        "TiredUntil": tiredUntil
+    })
+
+    for unit in mergeable:
+        gameData.deleteUnit(unit["Name"])
+
+    return {
+        "unit": base["Name"],
+        "merged": [unit["Name"] for unit in mergeable],
+        "failed": failed
+    }

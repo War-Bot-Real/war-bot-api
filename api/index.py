@@ -14,7 +14,7 @@ from typing import Optional
 from api.gameData import GameData
 from api.game_logic.income import collectIncome, calcRevByTerr
 from api.game_logic.shop import buyItem
-from api.game_logic.military import deployUnit, getForces
+from api.game_logic.military import deployUnit, getForces, mergeUnits
 from api.game_logic.diplomacy import allyNation, declareWar
 from api.game_logic.admin import registerNation
 from api.game_logic.top import top
@@ -618,9 +618,8 @@ def give(request: GiveRequest, user=Depends(get_current_user)):
   return response
 
 @app.get("/forces")
-def getForcesEndpoint(domain: Optional[str] = None, theater: Optional[str] = None, user=Depends(get_current_user)):
-    checkNation(user)
-    nation = gameData.getNation(user["nation"])
+def forces(domain: Optional[str] = None, theater: Optional[str] = None, user=Depends(get_current_user)):
+    nation = checkNation(user)
 
     try:
         result = getForces(gameData, nation, domain, theater)
@@ -631,3 +630,21 @@ def getForcesEndpoint(domain: Optional[str] = None, theater: Optional[str] = Non
         "success": True,
         "result": result
     }  
+
+class MergeRequest(BaseModel):
+  units: list[str]
+
+@app.post("/merge")
+def merge(request: MergeRequest, user=Depends(get_current_user)):
+  nation = checkNation(user)
+  try:
+    result = mergeUnits(gameData, nation, request.units)
+  except ValueError as e:
+    raise HTTPException(status_code=400, detail=str(e))
+  
+  return {
+      "success": True,
+      "result": result
+  }  
+
+    

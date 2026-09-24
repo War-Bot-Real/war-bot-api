@@ -71,6 +71,12 @@ class GameData:
 
         return query.execute().data
 
+    def updateUnit(self, id, changes):
+        return self.supabase.table("units").update(changes).eq("Name", id).execute()
+
+    def deleteUnit(self, id):
+        return self.supabase.table("units").delete().eq("Name", id).execute()
+
     def getUnitCounters(self):
         res = self.supabase.table("unitcounters").select("*").execute()
 
