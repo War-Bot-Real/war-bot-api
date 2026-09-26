@@ -282,3 +282,42 @@ def splitUnit(gameData, nation, unitName, divisions=2):
         "original": unit["Name"],
         "divisions": [unit["Name"]] + [u["Name"] for u in newUnits]
     }
+
+def disbandUnit(gameData, nation, unitName):
+    units = gameData.getUnit(unitName)
+
+    if not units:
+        raise ValueError(f"Unit '{unitName}' not found")
+
+    unit = units[0]
+    ownUnit = unit["Nation"] == nation["Name"]
+
+    if not ownUnit:
+        territory = gameData.getTerritory(unit["Location"])
+
+        if territory["Nation"] != nation["Name"]:
+            raise ValueError("That unit is not yours")
+
+        unitData = getUnitData(gameData, unit["Type"])[0]
+
+        if unitData == "Naval":
+            raise ValueError("You cannot disband another nation's naval unit")
+
+        if unit["Nation"] in nation["Diplomacy"]["Trusted"]:
+            raise ValueError(f"You currently trust {unit['Nation']}, so you cannot disband their unit")
+
+    # TODO: Prevent disbanding units belonging to a nation that recently broke a trusted agreement until their evacuation truce expires.
+
+    loaded = [u for u in gameData.getUnits() if u["Location"] == unit["Name"]]
+    disbanded = [unit["Name"]]
+
+    gameData.deleteUnit(unit["Name"])
+
+    for loadedUnit in loaded:
+        gameData.deleteUnit(loadedUnit["Name"])
+        disbanded.append(loadedUnit["Name"])
+
+    return {
+        "unit": unit["Name"],
+        "disbanded": disbanded
+    }
