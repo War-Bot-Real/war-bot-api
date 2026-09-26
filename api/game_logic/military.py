@@ -135,7 +135,7 @@ def getForces(gameData, nation, domain=None, theater=None):
     units = gameData.getUnits(nation["Name"])
 
     if domain is not None:
-        units = [u for u in units if getDomain(masterdata, u["Type"]) == domain]
+        units = [u for u in units if getDomain(gameData, u["Type"]) == domain]
 
     if territoryNames is not None:
         units = [u for u in units if u["Location"] in territoryNames]
