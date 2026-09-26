@@ -14,7 +14,7 @@ from typing import Optional
 from api.gameData import GameData
 from api.game_logic.income import collectIncome, calcRevByTerr
 from api.game_logic.shop import buyItem
-from api.game_logic.military import deployUnit, getForces, mergeUnits
+from api.game_logic.military import deployUnit, getForces, mergeUnits, splitUnit
 from api.game_logic.diplomacy import allyNation, declareWar
 from api.game_logic.admin import registerNation
 from api.game_logic.top import top
@@ -645,6 +645,21 @@ def merge(request: MergeRequest, user=Depends(get_current_user)):
   return {
       "success": True,
       "result": result
-  }  
+  }
 
-    
+class SplitRequest(BaseModel):
+  unit: str
+  parts: int = 2
+
+@app.post("/split")
+def split(request: SplitRequest, user=Depends(get_current_user)):
+  nation = checkNation(user)
+  try:
+    result = splitUnit(gameData, nation, request.unit, request.parts)
+  except ValueError as e:
+    raise HTTPException(status_code=400, detail=str(e))
+  
+  return {
+      "success": True,
+      "result": result
+  }

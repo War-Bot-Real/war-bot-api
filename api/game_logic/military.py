@@ -228,3 +228,57 @@ def mergeUnits(gameData, nation, unitNames):
         "merged": [unit["Name"] for unit in mergeable],
         "failed": failed
     }
+
+def splitUnit(gameData, nation, unitName, divisions=2):
+    units = gameData.getUnit(unitName)
+
+    if not units:
+        raise ValueError(f"Unit '{unitName}' not found")
+
+    unit = units[0]
+
+    if unit["Nation"] != nation["Name"]:
+        raise ValueError("You don't own that unit")
+
+    if divisions < 2:
+        raise ValueError("You must split into at least 2 divisions")
+
+    quantity = unit["Quantity"] // divisions
+    unitData = getUnitData(gameData, unit["Type"])[1]
+
+    if quantity < unitData["Minimum"]:
+        raise ValueError("The resulting divisions would be too small")
+
+    loaded = gameData.getUnits()
+    if any(u["Location"] == unit["Name"] for u in loaded):
+        raise ValueError("Can't split loaded carriers")
+
+    remainder = unit["Quantity"] - quantity * divisions
+
+    gameData.updateUnit(unit["Name"], {
+        "Quantity": quantity + remainder
+    })
+
+    newUnits = []
+
+    for _ in range(divisions - 1):
+        count = gameData.incrementUnitCounters(unitData["Short Form"])
+        unitId = quadify(count) + unitData["Short Form"]
+
+        newUnit = {
+            "Name": unitId,
+            "Type": unit["Type"],
+            "Quantity": quantity,
+            "Nation": unit["Nation"],
+            "Location": unit["Location"],
+            "TiredUntil": unit["TiredUntil"],
+            "Active": unit["Active"]
+        }
+
+        gameData.createUnit(newUnit)
+        newUnits.append(newUnit)
+
+    return {
+        "original": unit["Name"],
+        "divisions": [unit["Name"]] + [u["Name"] for u in newUnits]
+    }
