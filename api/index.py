@@ -277,14 +277,9 @@ def getBordersSea(name: str):
 def getAllMaps():
     res = supabase.table("maps").select("*").execute()
     return res.data
-
-@app.get("/market")
-def getMarket():
-    res = supabase.table("market").select("*").execute()
-    return res.data
-
-@app.get("/map/{map}/{shrink}")
-def getMap(map: str, shrink: bool):
+  
+@app.get("/map/{map}/image/{shrink}")
+def getMapImage(map: str, shrink: bool):
     try:
         if shrink:
           res = supabase.storage.from_("maps").create_signed_url(f"{map}/shrink.png", expires_in=60)
@@ -295,9 +290,25 @@ def getMap(map: str, shrink: bool):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@app.get("/map/{map}/data")
+def getMapData(map: str):
+    try:
+        res = supabase.storage.from_("maps").create_signed_url(f"{map}/data.json", expires_in=60)
+        signed_url = res["signedUrl"]
+        response = requests.get(signed_url)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @app.get("/shop")
 def shop():
     return gameData.getShop()
+
+@app.get("/market")
+def getMarket():
+    res = supabase.table("market").select("*").execute()
+    return res.data
 
 def checkNation(user):
   if user["nation"] is None:
