@@ -1,14 +1,4 @@
-def quadify(arg):
-  if type(arg) == type(str()):
-    if not arg.isdigit():
-      return (arg)
-  z = ""
-  arg = str(arg)
-  if len(arg) < 4:
-    for i in range(4 - len(arg)):
-      z += "0"
-  z += arg
-  return (z)
+from api.game_logic.shared import quadify
 
 def getUnitData(gameData, unittype):
   allunits = gameData.getDefaultGameData()["Units"]
@@ -151,8 +141,8 @@ def getForces(gameData, nation, domain=None, theater=None):
 
         if location in nationTerritories:
             territories.setdefault(location, []).append(unit)
-        elif potentialUnit != []:
-            carriers.setdefault(potentialUnit[0], []).append(unit)
+        elif potentialUnit != None:
+            carriers.setdefault(potentialUnit, []).append(unit)
         else:
             abroad.setdefault(location, []).append(unit)
 
@@ -170,13 +160,11 @@ def mergeUnits(gameData, nation, unitNames):
     invalid = []
 
     for name in unitNames:
-        matches = gameData.getUnit(name)
+        unit = gameData.getUnit(name)
 
-        if not matches:
+        if not unit:
             invalid.append(name)
             continue
-
-        unit = matches[0]
 
         if unit["Nation"] != nation["Name"]:
             invalid.append(name)
@@ -230,12 +218,10 @@ def mergeUnits(gameData, nation, unitNames):
     }
 
 def splitUnit(gameData, nation, unitName, divisions=2):
-    units = gameData.getUnit(unitName)
+    unit = gameData.getUnit(unitName)
 
-    if not units:
+    if not unit:
         raise ValueError(f"Unit '{unitName}' not found")
-
-    unit = units[0]
 
     if unit["Nation"] != nation["Name"]:
         raise ValueError("You don't own that unit")
@@ -284,12 +270,11 @@ def splitUnit(gameData, nation, unitName, divisions=2):
     }
 
 def disbandUnit(gameData, nation, unitName):
-    units = gameData.getUnit(unitName)
+    unit = gameData.getUnit(unitName)
 
-    if not units:
+    if not unit:
         raise ValueError(f"Unit '{unitName}' not found")
 
-    unit = units[0]
     ownUnit = unit["Nation"] == nation["Name"]
 
     if not ownUnit:

@@ -4,6 +4,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from supabase import Client
 from api.realtime import broadcast
+from api.game_logic.shared import findItem, quadify
 
 EPOCH = datetime(1970, 1, 1, tzinfo=ZoneInfo("America/Toronto"))
 
@@ -13,15 +14,13 @@ class GameData:
         self.supabase = supabase
 
     # ---------- Nations ----------
-
-    def getNation(self, nationName):
+    def getAllNations(self):
         res = self.supabase.table("nations").select("*").execute()
 
-        exact = [nation for nation in res.data if nation["Name"].lower() == nationName.lower()]
-        if exact:
-            return exact[0]
+        return res.data
 
-        matches = [nation for nation in res.data if nationName.lower() in nation["Name"].lower()]
+    def getNation(self, nationName):
+        matches = findItem(nationName, self.getAllNations(), "Name")
 
         if not matches:
             raise ValueError(f"Nation '{nationName}' not found")
@@ -33,15 +32,9 @@ class GameData:
 
     def updateNation(self, nationName, changes):
         # changes is a dict of column names and their new values, e.g. {"Balance": 1000, "last": {...}}
-        return (
-            self.supabase
-            .table("nations")
-            .update(changes)
-            .eq("Name", nationName)
-            .execute()
-        )
+        return self.supabase.table("nations").update(changes).eq("Name", nationName).execute()
 
-    # ---------- Territories ----------
+    # ---------- Territories / Seas ----------
     
     def getAllTerr(self):
         res = self.supabase.table("territories").select("*").execute()
@@ -52,15 +45,61 @@ class GameData:
         res = self.supabase.table("territories").select("*").eq("Nation", nationName).execute()
 
         return res.data
+    
+    def getTerritory(self, name):
+      matches = findItem(name, self.getAllTerr(), "Name")
+
+      if not matches:
+          raise ValueError(f"Territory '{name}' not found")
+
+      if len(matches) > 1:
+          raise ValueError(f"Multiple territories found for '{name}'")
+
+      return matches[0]
+    
+    def getAllSeas(self):
+        res = self.supabase.table("seas").select("*").execute()
+
+        return res.data
+      
+    def getSea(self, name):
+      matches = findItem(name, self.getAllSeas(), "Name")
+
+      if not matches:
+          raise ValueError(f"Sea '{name}' not found")
+
+      if len(matches) > 1:
+          raise ValueError(f"Multiple seas found for '{name}'")
+
+      return matches[0]
 
     # ---------- Units ----------
 
     def createUnit(self, unit):
         return self.supabase.table("units").insert(unit).execute()
         
-    def getUnit(self, id):
-        query = self.supabase.table("units").select("*").ilike("Name", id)
-        return query.execute().data
+    def getUnit(self, id, throwError = False):
+      units = self.getUnits()
+      for unit in units:
+          if unit["Name"].lower() == id.lower():
+              return unit
+
+      matched = None
+      shortforms = self.getUnitShortForms()
+      for shortForm in shortforms.keys():
+          if id.lower().endswith(shortForm.lower()):
+              matched = id[-len(shortForm):]
+              break
+
+      if matched:
+          id = quadify(id.removesuffix(matched)) + matched.upper()
+          for unit in units:
+              if unit["Name"].upper() == id:
+                  return unit
+                
+      if throwError:
+        raise ValueError(f"Unit '{id}' not found.")
+      return None
               
     def getUnits(self, nation=None):
         query = self.supabase.table("units").select("*")
@@ -197,6 +236,14 @@ class GameData:
         store["Buildings"] = data["Buildings"]
 
         return store
+    
+    def getUnitShortForms(self):
+      masterdata = self.getDefaultGameData()
+      shortforms = {}
+      for domain in masterdata["Units"]:
+        for i in masterdata["Units"][domain]:
+          shortforms[masterdata["Units"][domain][i]["Short Form"]] = i
+      return shortforms
 
     # ---------- Game Time ----------
 
