@@ -32,7 +32,7 @@ def buyItem(nation, gameData, item, quantity):
     inventory[item] = inventory.get(item, 0) + quantity
     for i in price:
       if i != "Money":
-        nation["Inventory"][i] -= price[i]
+        inventory[i] -= price[i]
     newbalance = nation["Balance"] - price["Money"]
     
     gameData.updateNation(
@@ -47,5 +47,6 @@ def buyItem(nation, gameData, item, quantity):
         "item": item,
         "quantity": quantity,
         "price": price,
-        "New Balance": newbalance
+        "New Balance": newbalance,
+        "New Inventory": inventory
     }
