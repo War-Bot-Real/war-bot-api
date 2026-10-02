@@ -1,7 +1,5 @@
 import requests
 from fastapi import APIRouter, HTTPException, Depends
-from fastapi.security import HTTPBearer
-from dotenv import load_dotenv
 from pydantic import BaseModel
 import secrets
 import string
@@ -19,8 +17,6 @@ from api.game_logic.top import top
 from api.game_logic.give import giveMoney
 
 router = APIRouter()
-
-security = HTTPBearer()
 
 @router.get("/me")
 def getMe(user = Depends(get_current_user)):
