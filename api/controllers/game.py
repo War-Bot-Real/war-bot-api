@@ -1,8 +1,5 @@
-from supabase import create_client
-import os
 import requests
-from fastapi import FastAPI, HTTPException, Depends
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import HTTPBearer
 from dotenv import load_dotenv
 from pydantic import BaseModel
@@ -12,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from api.auth import get_current_user
-from api.repositories.gameData import GameData
+from api.database import gameData, supabase
 from api.game_logic.income import collectIncome, calcRevByTerr
 from api.game_logic.shop import buyItem
 from api.game_logic.military import deployUnit, getForces, mergeUnits, splitUnit, disbandUnit
@@ -21,40 +18,25 @@ from api.game_logic.admin import registerNation
 from api.game_logic.top import top
 from api.game_logic.give import giveMoney
 
-load_dotenv()
-
-SUPABASE_URL = os.environ["SUPABASE_URL"]
-SUPABASE_KEY = os.environ["SUPABASE_KEY"]
-
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-gameData = GameData(supabase)
-
-app = FastAPI(title="War Bot API")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173", "https://war-bot-web.vercel.app"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+router = APIRouter()
 
 security = HTTPBearer()
 
-@app.get("/me")
+@router.get("/me")
 def getMe(user = Depends(get_current_user)):
     return user
 
-@app.get("/")
+@router.get("/")
 def root():
     return {"status": "War Bot API running"}
 
-@app.get("/territories")
+@router.get("/territories")
 def getAllTerr():
     # All aspects of a territory are public information
     res = supabase.table("territories").select("*").execute()
     return res.data
 
-@app.get("/territory/{name}")
+@router.get("/territory/{name}")
 def getTerr(name: str):
     # All aspects of a territory are public information
     res = (
@@ -72,13 +54,13 @@ def getTerr(name: str):
   
 nationPublicFields = ["Name", "Ideology", "Flag", "Demonym", "Color", "Capital", "Diplomacy"]
 
-@app.get("/nations")
+@router.get("/nations")
 def getNations():
   res = supabase.table("nations").select(", ".join(nationPublicFields)).execute()
           
   return res.data
 
-@app.get("/nation/{nation}")
+@router.get("/nation/{nation}")
 def getNation(nation: str, user = Depends(get_current_user)):
   if user["admin"]:
     res = supabase.table("nations").select("*").eq("Name", nation).execute()
@@ -91,7 +73,7 @@ def getNation(nation: str, user = Depends(get_current_user)):
   
   return res.data[0]
 
-@app.get("/territories/{nation}")
+@router.get("/territories/{nation}")
 def getNationTerr(nation: str):
     nations = [i["Name"].lower() for i in getNations()]
     if nation.lower() not in nations:
@@ -107,7 +89,7 @@ def getNationTerr(nation: str):
 
     return res.data
   
-@app.get("/borders/terr/{name}")
+@router.get("/borders/terr/{name}")
 def getBordersTerr(name: str):
     res = (
         supabase
@@ -122,7 +104,7 @@ def getBordersTerr(name: str):
     
     return res.data[0]  
       
-@app.get("/borders/nation/{name}")
+@router.get("/borders/nation/{name}")
 def getBordersNat(name: str):
   terrlist = getNationTerr(name)
   
@@ -138,7 +120,7 @@ def getBordersNat(name: str):
     data.append({"Name": i, "Nation": getTerr(i)["Nation"]})
   return data
 
-@app.get("/distance/{from_territory}/{to_territory}")
+@router.get("/distance/{from_territory}/{to_territory}")
 def getDistance(from_territory: str, to_territory: str):
     from_res = (
         supabase
@@ -176,7 +158,7 @@ def getDistance(from_territory: str, to_territory: str):
         "distance": distance
     }
 
-@app.get("/players")
+@router.get("/players")
 def getPlayers():
     data = gameData.getDefaultGameData()
     show_ids = data["Settings"]["Admin"]["Anonymous Players"]["Value"]
@@ -194,12 +176,12 @@ def getPlayers():
 
     return players
 
-@app.get("/seas")
+@router.get("/seas")
 def getAllSeas():
     res = supabase.table("seas").select("*").execute()
     return res.data
 
-@app.get("/sea/{name}")
+@router.get("/sea/{name}")
 def getSea(name: str):
     res = (
         supabase
@@ -214,7 +196,7 @@ def getSea(name: str):
 
     return res.data[0]
 
-@app.get("/borders/sea/{name}")
+@router.get("/borders/sea/{name}")
 def getBordersSea(name: str):
     res = (
         supabase
@@ -229,12 +211,12 @@ def getBordersSea(name: str):
 
     return res.data[0]
 
-@app.get("/maps")
+@router.get("/maps")
 def getAllMaps():
     res = supabase.table("maps").select("*").execute()
     return res.data
   
-@app.get("/map/{map}/image/{shrink}")
+@router.get("/map/{map}/image/{shrink}")
 def getMapImage(map: str, shrink: bool):
     try:
         if shrink:
@@ -246,7 +228,7 @@ def getMapImage(map: str, shrink: bool):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/map/{map}/data")
+@router.get("/map/{map}/data")
 def getMapData(map: str):
     try:
         res = supabase.storage.from_("maps").create_signed_url(f"{map}/data.json", expires_in=60)
@@ -257,11 +239,11 @@ def getMapData(map: str):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/shop")
+@router.get("/shop")
 def shop():
     return gameData.getShop()
 
-@app.get("/market")
+@router.get("/market")
 def getMarket():
     res = supabase.table("market").select("*").execute()
     return res.data
@@ -271,7 +253,7 @@ def checkNation(user):
     raise HTTPException(status_code=403, detail="User is not a nation.")
   return gameData.getNation(user["nation"])
 
-@app.patch("/settax/{rate}")
+@router.patch("/settax/{rate}")
 def settax(rate: int, user = Depends(get_current_user)):
   checkNation(user)
   
@@ -284,21 +266,21 @@ def settax(rate: int, user = Depends(get_current_user)):
   res = supabase.table("nations").update({"Tax Rate": rate}).eq("Name", user["nation"]).execute()
   return res.data[0]
 
-@app.get("/bal")
+@router.get("/bal")
 def balance(user = Depends(get_current_user)):
   checkNation(user)
   
   res = supabase.table("nations").select('Balance, Stability, "Political Power"').eq("Name", user["nation"]).execute()
   return res.data[0]
 
-@app.get("/inv")
+@router.get("/inv")
 def inventory(user = Depends(get_current_user)):
   checkNation(user)
   
   res = supabase.table("nations").select("Inventory").eq("Name", user["nation"]).execute()
   return res.data[0]
   
-@app.post("/income/collect")
+@router.post("/income/collect")
 def collect(user=Depends(get_current_user)):
     checkNation(user)
 
@@ -314,7 +296,7 @@ def collect(user=Depends(get_current_user)):
         "result": result
     }
 
-@app.get("/income/view")
+@router.get("/income/view")
 def income(user = Depends(get_current_user)):
     checkNation(user)
 
@@ -336,7 +318,7 @@ class BuyRequest(BaseModel):
     item: str
     quantity: int
     
-@app.post("/buy")
+@router.post("/buy")
 def buy(request: BuyRequest, user=Depends(get_current_user)):
     checkNation(user)
 
@@ -356,7 +338,7 @@ class DeployRequest(BaseModel):
     quantity: int
     territory: str    
     
-@app.post("/deploy")
+@router.post("/deploy")
 def deploy(request: DeployRequest, user=Depends(get_current_user)):
     checkNation(user)
     nation = gameData.getNation(user["nation"])
@@ -379,7 +361,7 @@ def deploy(request: DeployRequest, user=Depends(get_current_user)):
 class AllyRequest(BaseModel):
     nation: str
 
-@app.post("/ally")
+@router.post("/ally")
 def ally(request: AllyRequest, user=Depends(get_current_user)):
     checkNation(user)
 
@@ -401,7 +383,7 @@ def generateDiscordLinkCode():
     alphabet = string.ascii_uppercase + string.digits
     return "".join(secrets.choice(alphabet) for _ in range(8))
     
-@app.post("/discord/link/generate")
+@router.post("/discord/link/generate")
 def startDiscordLink(user=Depends(get_current_user)):
     
     player_id = user["id"]
@@ -424,7 +406,7 @@ class DiscordLinkRequest(BaseModel):
     code: str
     discord_id: str    
     
-@app.post("/discord/link/confirm")
+@router.post("/discord/link/confirm")
 def confirmDiscordLink(request: DiscordLinkRequest, user=Depends(get_current_user)):
     if user.get("source") != "bot":
         raise HTTPException(status_code=403, detail="This endpoint can only be used by the Discord bot")
@@ -466,7 +448,7 @@ class RegisterRequest(BaseModel):
     ruler: int
     channel: int
 
-@app.post("/register")
+@router.post("/register")
 def register(data: RegisterRequest, user = Depends(get_current_user)):
     if not user["admin"]:
         raise HTTPException(status_code=403, detail="Admin only")
@@ -476,14 +458,14 @@ def register(data: RegisterRequest, user = Depends(get_current_user)):
 
     return result
 
-@app.get("/gametime")
+@router.get("/gametime")
 def getGameTime():
   return gameData.gameTime()
 
 class DeclareWarRequest(BaseModel):
     nation: str
   
-@app.post("/declarewar")
+@router.post("/declarewar")
 def declareWarEndpoint(request: DeclareWarRequest, user=Depends(get_current_user)):
     checkNation(user)
 
@@ -499,7 +481,7 @@ def declareWarEndpoint(request: DeclareWarRequest, user=Depends(get_current_user
         "result": result
     }
 
-@app.get("/messages")
+@router.get("/messages")
 def getMessages(user=Depends(get_current_user)):
   toAll = supabase.table("messages").select("*").eq("recipient", None).execute()
   
@@ -515,7 +497,7 @@ def getMessages(user=Depends(get_current_user)):
     "result": toAll.data + recieved.data + sent.data + news.data
   }
 
-@app.get("/last/read")
+@router.get("/last/read")
 def getMessages(user=Depends(get_current_user)):
     nation = checkNation(user)
 
@@ -530,7 +512,7 @@ def getMessages(user=Depends(get_current_user)):
 
     return nation["last"]["read"]
 
-@app.post("/read/{category}")
+@router.post("/read/{category}")
 def readMessage(category: str, user=Depends(get_current_user)):
     nation = checkNation(user)
     category = category.lower()
@@ -547,7 +529,7 @@ def readMessage(category: str, user=Depends(get_current_user)):
 
     return nation["last"]
 
-@app.get("/wars")
+@router.get("/wars")
 def currentWars():
     wars = gameData.getWars()
     response = []
@@ -561,7 +543,7 @@ def currentWars():
       response.append(war)
     return response
       
-@app.get("/top/{category}")
+@router.get("/top/{category}")
 def rankNations(category: str):
   try:
     return top(gameData, category.lower())
@@ -573,7 +555,7 @@ class GiveRequest(BaseModel):
   money: int
   message: str = ""
 
-@app.post("/give")
+@router.post("/give")
 def give(request: GiveRequest, user=Depends(get_current_user)):
   nation = checkNation(user)
   try:
@@ -584,7 +566,7 @@ def give(request: GiveRequest, user=Depends(get_current_user)):
   response["success"] = True
   return response
 
-@app.get("/forces")
+@router.get("/forces")
 def forces(domain: Optional[str] = None, theater: Optional[str] = None, user=Depends(get_current_user)):
     nation = checkNation(user)
 
@@ -601,7 +583,7 @@ def forces(domain: Optional[str] = None, theater: Optional[str] = None, user=Dep
 class MergeRequest(BaseModel):
   units: list[str]
 
-@app.post("/merge")
+@router.post("/merge")
 def merge(request: MergeRequest, user=Depends(get_current_user)):
   nation = checkNation(user)
   try:
@@ -618,7 +600,7 @@ class SplitRequest(BaseModel):
   unit: str
   parts: int = 2
 
-@app.post("/split")
+@router.post("/split")
 def split(request: SplitRequest, user=Depends(get_current_user)):
   nation = checkNation(user)
   try:
@@ -631,7 +613,7 @@ def split(request: SplitRequest, user=Depends(get_current_user)):
       "result": result
   }
 
-@app.post("/disband/{unit}")
+@router.post("/disband/{unit}")
 def disband(unit: str, user=Depends(get_current_user)):
   nation = checkNation(user)
   try:

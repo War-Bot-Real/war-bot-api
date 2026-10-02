@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 from api.database import gameData
 from api.auth import checkAdmin
-from api.game_logic.diplomacy import registerNation
+from api.game_logic.admin import registerNation
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
