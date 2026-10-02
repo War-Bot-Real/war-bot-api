@@ -1,3 +1,4 @@
+from api.models import Territory
 from api.game_logic.military import getUnitData
 from api.game_logic.shared import calcDistance, pxToKm
 
@@ -29,18 +30,18 @@ def getCapacity(gameData, unit):
     return unit["Quantity"] * data.get("Capacity", 0)
 
 def getAllBorders(gameData, tile):
-    borders = tile["Bordering"].copy()
+    borders = tile.bordering.copy()
 
-    if "Coast" in tile:
-        borders += tile["Coast"]
+    if isinstance(tile, Territory):
+        borders += tile.coast
 
         for unit in gameData.getUnits():
-            if unit["Location"] == tile["Name"] and getCapacity(gameData, unit) > 0:
+            if unit["Location"] == tile.name and getCapacity(gameData, unit) > 0:
                 borders.append(unit["Name"])
     else:
-        for territory in gameData.getTerritories():
-            if tile["Name"] in territory["Coast"]:
-                borders.append(territory["Name"])
+        for territory in gameData.getAllTerr():
+            if tile.name in territory.coast:
+                borders.append(territory.name)
 
     return borders
 
@@ -56,13 +57,13 @@ def inRange(gameData, plane, target, roundTrip=True):
     if location is None:
         return False
 
-    if "Type" in location:
+    if isinstance(location, dict) and "Type" in location:
         location = station(gameData, location)
 
         if location is None:
             return False
 
-        if location["Name"] in getAllBorders(gameData, target):
+        if location.name in getAllBorders(gameData, target):
             return True
 
     distance = calcDistance(location, target)

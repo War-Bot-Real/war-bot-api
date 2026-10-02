@@ -8,6 +8,7 @@ from typing import Optional
 
 from api.auth import get_current_user
 from api.database import gameData, supabase
+from api.models import Nation, Territory
 from api.game_logic.income import collectIncome, calcRevByTerr
 from api.game_logic.shop import buyItem
 from api.game_logic.military import deployUnit, getForces, mergeUnits, splitUnit, disbandUnit
@@ -69,14 +70,8 @@ def getNationTerr(nation: str):
     if nation.lower() not in nations:
         raise HTTPException(status_code=404, detail="Nation does not exist")
       
-    res = (
-        supabase
-        .table("territories")
-        .select("*")
-        .ilike("Nation", nation)
-        .execute()
-    )
-
+    # All aspects of a territory are public information
+    res = supabase.table("territories").select("*").ilike("Nation", nation).execute()
     return res.data
   
 @router.get("/borders/terr/{name}")
@@ -231,7 +226,7 @@ def getMarket():
     res = supabase.table("market").select("*").execute()
     return res.data
 
-def checkNation(user):
+def checkNation(user) -> Nation:
   if user["nation"] is None:
     raise HTTPException(status_code=403, detail="User is not a nation.")
   return gameData.getNation(user["nation"])
@@ -275,7 +270,7 @@ def collect(user=Depends(get_current_user)):
 
     return {
         "success": True,
-        "Nation": nation["Name"],
+        "Nation": nation.name,
         "result": result
     }
 
@@ -288,12 +283,12 @@ def income(user = Depends(get_current_user)):
     if not res.data:
         raise HTTPException(status_code=404, detail="User Nation not found")
 
-    nation = res.data[0]
+    nation = Nation(res.data[0])
     income = calcRevByTerr(gameData, nation)
 
     return {
         "success": True,
-        "Nation": nation["Name"],
+        "Nation": nation.name,
         "Income": income
     }
 
@@ -332,7 +327,7 @@ def deploy(request: DeployRequest, user=Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Territory not found")
 
     try:
-        result = deployUnit(gameData, nation, territory.data[0], request.unit, request.quantity)
+        result = deployUnit(gameData, nation, Territory(territory.data[0]), request.unit, request.quantity)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -484,16 +479,16 @@ def getMessages(user=Depends(get_current_user)):
 def getMessages(user=Depends(get_current_user)):
     nation = checkNation(user)
 
-    if "read" not in nation["last"]:
-        nation["last"]["read"] = {}
+    if "read" not in nation.last:
+        nation.last["read"] = {}
 
     for i in ["notifications", "messages", "news"]:
-        if i not in nation["last"]["read"]:
-            nation["last"]["read"][i] = 0
+        if i not in nation.last["read"]:
+            nation.last["read"][i] = 0
 
-    gameData.updateNation(nation["Name"], {"last": nation["last"]})
+    gameData.updateNation(nation.name, {"last": nation.last})
 
-    return nation["last"]["read"]
+    return nation.last["read"]
 
 @router.post("/read/{category}")
 def readMessage(category: str, user=Depends(get_current_user)):
@@ -503,14 +498,14 @@ def readMessage(category: str, user=Depends(get_current_user)):
     if category not in ["notifications", "messages", "news"]:
         raise HTTPException(status_code=400, detail="Invalid Category. Valid categories are notifications, messages, and news.")
 
-    if "read" not in nation["last"]:
-        nation["last"]["read"] = {}
+    if "read" not in nation.last:
+        nation.last["read"] = {}
 
-    nation["last"]["read"][category] = datetime.now(timezone.utc).isoformat()
+    nation.last["read"][category] = datetime.now(timezone.utc).isoformat()
 
-    gameData.updateNation(nation["Name"], {"last": nation["last"]})
+    gameData.updateNation(nation.name, {"last": nation.last})
 
-    return nation["last"]
+    return nation.last
 
 @router.get("/wars")
 def currentWars():
@@ -520,7 +515,7 @@ def currentWars():
       war = {}
       attacker = gameData.getNation(i["from"])
       defender = gameData.getNation(i["to"])
-      war["name"] = f"{attacker["Demonym"]}-{defender["Demonym"]} War"
+      war["name"] = f"{attacker.demonym}-{defender.demonym} War"
       war["aggressors"] = i["details"]["aggressors"]
       war["defenders"] = i["details"]["defenders"]
       response.append(war)

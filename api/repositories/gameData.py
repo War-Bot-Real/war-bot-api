@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 from supabase import Client
 from api.realtime import broadcast
 from api.game_logic.shared import findItem, quadify
-from api.models.tile import Territory, Sea
+from api.models import Territory, Sea, Nation
 
 EPOCH = datetime(1970, 1, 1, tzinfo=ZoneInfo("America/Toronto"))
 
@@ -15,19 +15,19 @@ class GameData:
         self.supabase = supabase
 
     # ---------- Nations ----------
-    def getAllNations(self):
+    def getAllNations(self) -> list[Nation]:
         res = self.supabase.table("nations").select("*").execute()
 
-        return res.data
+        return [Nation(n) for n in res.data]
 
-    def getNation(self, nationName):
-        matches = findItem(nationName, self.getAllNations(), "Name")
+    def getNation(self, nationName: str) -> Nation:
+        matches = findItem(nationName, self.getAllNations(), "name")
 
         if not matches:
             raise ValueError(f"Nation '{nationName}' not found")
 
         if len(matches) > 1:
-            raise ValueError(f"Multiple nations found: {', '.join(n['Name'] for n in matches)}")
+            raise ValueError(f"Multiple nations found: {', '.join(n.name for n in matches)}")
           
         return matches[0]
 
@@ -37,18 +37,18 @@ class GameData:
 
     # ---------- Territories / Seas ----------
     
-    def getAllTerr(self):
+    def getAllTerr(self) -> list[Territory]:
         res = self.supabase.table("territories").select("*").execute()
 
         return [Territory(t) for t in res.data]
 
-    def getNationTerr(self, nationName):
+    def getNationTerr(self, nationName: str) -> list[Territory]:
         res = self.supabase.table("territories").select("*").eq("Nation", nationName).execute()
 
         return [Territory(t) for t in res.data]
     
-    def getTerritory(self, name):
-      matches = findItem(name, self.getAllTerr(), "Name")
+    def getTerritory(self, name: str) -> Territory:
+      matches = findItem(name, self.getAllTerr(), "name")
 
       if not matches:
           raise ValueError(f"Territory '{name}' not found")
@@ -56,15 +56,15 @@ class GameData:
       if len(matches) > 1:
           raise ValueError(f"Multiple territories found for '{name}'")
 
-      return Territory(matches[0])
+      return matches[0]
     
-    def getAllSeas(self):
+    def getAllSeas(self) -> list[Sea]:
         res = self.supabase.table("seas").select("*").execute()
 
         return [Sea(s) for s in res.data]
       
-    def getSea(self, name):
-      matches = findItem(name, self.getAllSeas(), "Name")
+    def getSea(self, name: str) -> Sea:
+      matches = findItem(name, self.getAllSeas(), "name")
 
       if not matches:
           raise ValueError(f"Sea '{name}' not found")

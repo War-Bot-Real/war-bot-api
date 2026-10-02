@@ -6,133 +6,133 @@ truceTimes = {
 }
 
 def allyNation(gameData, nation, otherNation):
-    if nation["Name"] == otherNation["Name"]:
+    if nation.name == otherNation.name:
         raise ValueError("You can't ally with yourself")
 
-    if otherNation["Name"] in nation["Diplomacy"]["Allies"]:
-        raise ValueError(f'You are already allied with {otherNation["Name"]}')
+    if otherNation.name in nation.diplomacy["Allies"]:
+        raise ValueError(f'You are already allied with {otherNation.name}')
 
-    existingRequest = gameData.getInteraction(nation["Name"], otherNation["Name"], "ally")
+    existingRequest = gameData.getInteraction(nation.name, otherNation.name, "ally")
 
     if existingRequest is not None:
-        raise ValueError(f'You have already requested an alliance with {otherNation["Name"]}')
+        raise ValueError(f'You have already requested an alliance with {otherNation.name}')
 
-    incomingRequest = gameData.getInteraction(otherNation["Name"], nation["Name"], "ally")
+    incomingRequest = gameData.getInteraction(otherNation.name, nation.name, "ally")
 
     if incomingRequest is not None:
         gameData.deleteInteraction(incomingRequest["id"])
 
-        nationDiplomacy = nation["Diplomacy"].copy()
-        nationDiplomacy["Allies"].append(otherNation["Name"])
+        nationDiplomacy = nation.diplomacy.copy()
+        nationDiplomacy["Allies"].append(otherNation.name)
 
         gameData.updateNation(
-            nation["Name"],
+            nation.name,
             {
                 "Diplomacy": nationDiplomacy
             }
         )
 
-        otherDiplomacy = otherNation["Diplomacy"].copy()
-        otherDiplomacy["Allies"].append(nation["Name"])
+        otherDiplomacy = otherNation.diplomacy.copy()
+        otherDiplomacy["Allies"].append(nation.name)
 
         gameData.updateNation(
-            otherNation["Name"],
+            otherNation.name,
             {
                 "Diplomacy": otherDiplomacy
             }
         )
 
-        msg = f'{nation["Name"]} has accepted your offer of an alliance. Good luck to you both, and may this alliance last.'
-        gameData.createMessage(None, otherNation["Name"], "ally", msg)
+        msg = f'{nation.name} has accepted your offer of an alliance. Good luck to you both, and may this alliance last.'
+        gameData.createMessage(None, otherNation.name, "ally", msg)
 
         return {
             "accepted": True,
-            "nation": otherNation["Name"]
+            "nation": otherNation.name
         }
 
-    gameData.createInteraction(nation["Name"], otherNation["Name"], "ally")
+    gameData.createInteraction(nation.name, otherNation.name, "ally")
 
-    msg = f'{nation["Name"]} has requested an alliance with you. If you accept, you will be called into all defensive wars {nation["Name"]} takes part in.'
-    gameData.createMessage(None, otherNation["Name"], "ally", msg)
+    msg = f'{nation.name} has requested an alliance with you. If you accept, you will be called into all defensive wars {nation.name} takes part in.'
+    gameData.createMessage(None, otherNation.name, "ally", msg)
 
     return {
         "accepted": False,
-        "nation": otherNation["Name"]
+        "nation": otherNation.name
     }
     
 def declareWar(gameData, nation, target):
-    if nation["Name"] == target["Name"]:
+    if nation.name == target.name:
         raise ValueError("You can't declare war on yourself")
 
-    if gameData.atWar(nation["Name"], target["Name"]):
+    if gameData.atWar(nation.name, target.name):
         raise ValueError("You're already at war with that nation")
 
-    if target["Name"] in nation["Diplomacy"]["Allies"]:
-        raise ValueError(f"You are currently allied to {target['Name']}")
+    if target.name in nation.diplomacy["Allies"]:
+        raise ValueError(f"You are currently allied to {target.name}")
 
-    if target["Name"] in nation["Diplomacy"]["Trusted"]:
+    if target.name in nation.diplomacy["Trusted"]:
         raise ValueError("You cannot go to war with someone you trust")
 
     napBroken = False
 
-    if target["Name"] in nation["Diplomacy"]["Non-Aggression Pacts"]:
-        if nation["Ideology"] != "Fascism":
-            raise ValueError(f"You currently have a non-aggression pact with {target['Name']}")
+    if target.name in nation.diplomacy["Non-Aggression Pacts"]:
+        if nation.ideology != "Fascism":
+            raise ValueError(f"You currently have a non-aggression pact with {target.name}")
         napBroken = True
 
     # TODO: Implement the actual political power cost.
     ppCost = 30
 
-    if nation["Political Power"] < ppCost:
-        raise ValueError(f"You require {ppCost - nation['Political Power']} more political power to declare war on {target['Name']}")
+    if nation.politicalPower < ppCost:
+        raise ValueError(f"You require {ppCost - nation.politicalPower} more political power to declare war on {target.name}")
 
-    defenders = [target["Name"]] + target["Diplomacy"]["Allies"]
+    defenders = [target.name] + target.diplomacy["Allies"]
 
     # treatyName = createWhitePeaceTreaty(gameData, nation, target)
     treatyName = "" #remove once testing done
     warDetails = {
-        "aggressors": [nation["Name"]],
+        "aggressors": [nation.name],
         "defenders": defenders,
         "treaties": [treatyName]
     }
 
-    # gameData.createInteraction(nation["Name"], target["Name"], "war", warDetails)
+    # gameData.createInteraction(nation.name, target.name, "war", warDetails)
 
-    nationDiplomacy = nation["Diplomacy"].copy()
+    nationDiplomacy = nation.diplomacy.copy()
 
     breakmsg = ""
     if napBroken:
-        nationDiplomacy["Non-Aggression Pacts"].remove(target["Name"])
+        nationDiplomacy["Non-Aggression Pacts"].remove(target.name)
 
-        targetDiplomacy = target["Diplomacy"].copy()
-        targetDiplomacy["Non-Aggression Pacts"].remove(nation["Name"])
+        targetDiplomacy = target.diplomacy.copy()
+        targetDiplomacy["Non-Aggression Pacts"].remove(nation.name)
 
-        gameData.updateNation(target["Name"], {
+        gameData.updateNation(target.name, {
             "Diplomacy": targetDiplomacy
         })
         breakmsg = ", breaking your non-aggression pact" if napBroken else ""
 
-    gameData.createMessage(None, target["Name"], "war", f"Alert! {nation['Name']} has declared war on {target['Name']}{breakmsg}!")
+    gameData.createMessage(None, target.name, "war", f"Alert! {nation.name} has declared war on {target.name}{breakmsg}!")
 
-    for allyName in target["Diplomacy"]["Allies"]:
-        gameData.createMessage(None, allyName, "war", f"You have been called into the {nation['Demonym']}-{target['Demonym']} War on the side of {target['Name']}!")
+    for allyName in target.diplomacy["Allies"]:
+        gameData.createMessage(None, allyName, "war", f"You have been called into the {nation.demonym}-{target.demonym} War on the side of {target.name}!")
 
-    gameData.createMessage(None, None, "news", f"{nation['Name']} has declared war on {target['Name']}!")
+    gameData.createMessage(None, None, "news", f"{nation.name} has declared war on {target.name}!")
     
-    gameData.updateNation(nation["Name"], {
-        "Political Power": nation["Political Power"] - ppCost,
+    gameData.updateNation(nation.name, {
+        "Political Power": nation.politicalPower - ppCost,
         "Diplomacy": nationDiplomacy
     })
 
     return {
-        "target": target["Name"],
+        "target": target.name,
         "cost": ppCost,
         "nap_broken": napBroken,
         "war": warDetails
     }
 
 def createWhitePeaceTreaty(gameData, nation, target):
-    treatyName = f"{nation['Demonym']}-{target['Demonym']} White Peace"
+    treatyName = f"{nation.demonym}-{target.demonym} White Peace"
 
     treaty = {
         "name": treatyName,
@@ -144,13 +144,13 @@ def createWhitePeaceTreaty(gameData, nation, target):
         "ratifiers": []
     }
 
-    participants = [nation["Name"], target["Name"]] + target["Diplomacy"]["Allies"]
+    participants = [nation.name, target.name] + target.diplomacy["Allies"]
 
     for participant in participants:
         treaty["borders"][participant] = [territory.name for territory in gameData.getNationTerr(participant)]
 
-    if target.get("ruler") is None:
-        treaty["ratifiers"].append(target["Name"])
+    if target.ruler is None:
+        treaty["ratifiers"].append(target.name)
 
     gameData.createTreaty(treaty)
     

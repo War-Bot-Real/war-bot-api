@@ -26,11 +26,11 @@ def deployUnit(gameData, nation, territory, unit, quantity):
         raise ValueError("You can't deploy negative troops")
 
     # Territory ownership
-    if territory["Nation"] != nation["Name"]:
-        raise ValueError(f'{territory["Name"]} is owned by {territory["Nation"]}')
+    if territory.nation != nation.name:
+        raise ValueError(f'{territory.name} is owned by {territory.nation}')
 
     # Territory integration
-    if territory["Integrated"] > gameData.gameTime():
+    if territory.integrated > gameData.gameTime():
         raise ValueError("This territory has not been integrated yet")
 
     # Find unit
@@ -42,10 +42,10 @@ def deployUnit(gameData, nation, territory, unit, quantity):
 
     # if unitdata["Each"] > 1:
     #     inventoryName += " Division"
-    if inventoryName not in nation["Inventory"]:
+    if inventoryName not in nation.inventory:
         raise ValueError(f"Nation does not have any {inventoryName}")
 
-    if nation["Inventory"][inventoryName] < quantity:
+    if nation.inventory[inventoryName] < quantity:
         raise ValueError(f"Nation does not have enough {inventoryName}")
 
     unitDomain = getDomain(gameData, unit)
@@ -55,8 +55,8 @@ def deployUnit(gameData, nation, territory, unit, quantity):
         pass
 
     if unitDomain == "Air":
-        if "Airport" not in territory["Buildings"]:
-            raise ValueError(f'{territory["Name"]} must have an airport for you to deploy an aircraft')
+        if "Airport" not in territory.buildings:
+            raise ValueError(f'{territory.name} must have an airport for you to deploy an aircraft')
 
 
     # Generate unit ID
@@ -65,11 +65,11 @@ def deployUnit(gameData, nation, territory, unit, quantity):
     unitid = quadify(gameData.incrementUnitCounters(shortForm)) + shortForm
 
     # Remove units from inventory
-    inventory = nation["Inventory"].copy()
+    inventory = nation.inventory.copy()
     inventory[inventoryName] -= quantity
 
     gameData.updateNation(
-        nation["Name"],
+        nation.name,
         {
             "Inventory": inventory
         }
@@ -83,8 +83,8 @@ def deployUnit(gameData, nation, territory, unit, quantity):
         "Name": unitid,
         "Type": unit,
         "Quantity": quantity * unitdata["Each"],
-        "Nation": nation["Name"],
-        "Location": territory["Name"],
+        "Nation": nation.name,
+        "Location": territory.name,
         "Active": active,
         "TiredUntil": 0
     })
@@ -93,7 +93,7 @@ def deployUnit(gameData, nation, territory, unit, quantity):
     return {
         "unit": unitid,
         "quantity": quantity * unitdata["Each"],
-        "location": territory["Name"]
+        "location": territory.name
     }
 
 def getForces(gameData, nation, domain=None, theater=None):
@@ -110,7 +110,7 @@ def getForces(gameData, nation, domain=None, theater=None):
     territoryNames = None
 
     if theater != None:     
-      theaters = nation["Theaters"]
+      theaters = nation.theaters
 
       matches = [t for t in theaters if theater.lower() in t.lower()]
 
@@ -122,7 +122,7 @@ def getForces(gameData, nation, domain=None, theater=None):
       theater = matches[0]
       territoryNames = theaters[theater]
 
-    units = gameData.getUnits(nation["Name"])
+    units = gameData.getUnits(nation.name)
 
     if domain is not None:
         units = [u for u in units if getDomain(gameData, u["Type"]) == domain]
@@ -133,7 +133,7 @@ def getForces(gameData, nation, domain=None, theater=None):
     territories = {}
     abroad = {}
     carriers = {}
-    nationTerritories = [t.name for t in gameData.getNationTerr(nation["Name"])]
+    nationTerritories = [t.name for t in gameData.getNationTerr(nation.name)]
     
     for unit in units:
         location = unit["Location"]
@@ -166,7 +166,7 @@ def mergeUnits(gameData, nation, unitNames):
             invalid.append(name)
             continue
 
-        if unit["Nation"] != nation["Name"]:
+        if unit["Nation"] != nation.name:
             invalid.append(name)
             continue
 
@@ -223,7 +223,7 @@ def splitUnit(gameData, nation, unitName, divisions=2):
     if not unit:
         raise ValueError(f"Unit '{unitName}' not found")
 
-    if unit["Nation"] != nation["Name"]:
+    if unit["Nation"] != nation.name:
         raise ValueError("You don't own that unit")
 
     if divisions < 2:
@@ -275,7 +275,7 @@ def disbandUnit(gameData, nation, unitName):
     if not unit:
         raise ValueError(f"Unit '{unitName}' not found")
 
-    ownUnit = unit["Nation"] == nation["Name"]
+    ownUnit = unit["Nation"] == nation.name
 
     if not ownUnit:
         territory = gameData.getTerritory(unit["Location"])
@@ -288,7 +288,7 @@ def disbandUnit(gameData, nation, unitName):
         if unitData == "Naval":
             raise ValueError("You cannot disband another nation's naval unit")
 
-        if unit["Nation"] in nation["Diplomacy"]["Trusted"]:
+        if unit["Nation"] in nation.diplomacy["Trusted"]:
             raise ValueError(f"You currently trust {unit['Nation']}, so you cannot disband their unit")
 
     # TODO: Prevent disbanding units belonging to a nation that recently broke a trusted agreement until their evacuation truce expires.

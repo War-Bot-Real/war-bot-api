@@ -16,27 +16,27 @@ def buyItem(nation, gameData, item, quantity):
     notEnough = []
     for i in price:
       if i == "Money":
-        if nation["Balance"] < price["Money"]:
+        if nation.balance < price["Money"]:
           notEnough.append(i)
       else:
-        if i not in nation["Inventory"]:
+        if i not in nation.inventory:
           notEnough.append(i)
           continue
-        if nation["Inventory"][i] < price[i]:
+        if nation.inventory[i] < price[i]:
           notEnough.append(i)
     
     if len(notEnough) > 0:
         raise ValueError(f"Not Enough {formatList(notEnough, 'or')}")
       
-    inventory = nation["Inventory"].copy()
+    inventory = nation.inventory.copy()
     inventory[item] = inventory.get(item, 0) + quantity
     for i in price:
       if i != "Money":
         inventory[i] -= price[i]
-    newbalance = nation["Balance"] - price["Money"]
+    newbalance = nation.balance - price["Money"]
     
     gameData.updateNation(
-        nation["Name"],
+        nation.name,
         {
             "Balance": newbalance,
             "Inventory": inventory
