@@ -1,4 +1,4 @@
-from api.gameData import GameData
+from api.repositories.gameData import GameData
 from api.game_logic.shared import formatList
 
 def options():
