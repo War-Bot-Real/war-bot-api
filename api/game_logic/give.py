@@ -14,11 +14,11 @@ def giveMoney(gameData, nation, recipient, amount, message=""):
           raise ValueError(f"{recipient.name} has blocked you, and you are not allowed to send messages or money to them")
 
     gameData.updateNation(nation.name, {
-        "Balance": nation.balance - amount
+        "balance": nation.balance - amount
     })
 
     gameData.updateNation(recipient.name, {
-        "Balance": recipient.balance + amount
+        "balance": recipient.balance + amount
     })
 
     if len(message) > 0:

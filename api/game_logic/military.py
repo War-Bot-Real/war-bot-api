@@ -71,7 +71,7 @@ def deployUnit(gameData, nation, territory, unit, quantity):
     gameData.updateNation(
         nation.name,
         {
-            "Inventory": inventory
+            "inventory": inventory
         }
     )
 

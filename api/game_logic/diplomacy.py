@@ -28,7 +28,7 @@ def allyNation(gameData, nation, otherNation):
         gameData.updateNation(
             nation.name,
             {
-                "Diplomacy": nationDiplomacy
+                "diplomacy": nationDiplomacy
             }
         )
 
@@ -38,7 +38,7 @@ def allyNation(gameData, nation, otherNation):
         gameData.updateNation(
             otherNation.name,
             {
-                "Diplomacy": otherDiplomacy
+                "diplomacy": otherDiplomacy
             }
         )
 
@@ -83,8 +83,8 @@ def declareWar(gameData, nation, target):
     # TODO: Implement the actual political power cost.
     ppCost = 30
 
-    if nation.politicalPower < ppCost:
-        raise ValueError(f"You require {ppCost - nation.politicalPower} more political power to declare war on {target.name}")
+    if nation.political_power < ppCost:
+        raise ValueError(f"You require {ppCost - nation.political_power} more political power to declare war on {target.name}")
 
     defenders = [target.name] + target.diplomacy["Allies"]
 
@@ -108,7 +108,7 @@ def declareWar(gameData, nation, target):
         targetDiplomacy["Non-Aggression Pacts"].remove(nation.name)
 
         gameData.updateNation(target.name, {
-            "Diplomacy": targetDiplomacy
+            "diplomacy": targetDiplomacy
         })
         breakmsg = ", breaking your non-aggression pact" if napBroken else ""
 
@@ -120,8 +120,8 @@ def declareWar(gameData, nation, target):
     gameData.createMessage(None, None, "news", f"{nation.name} has declared war on {target.name}!")
     
     gameData.updateNation(nation.name, {
-        "Political Power": nation.politicalPower - ppCost,
-        "Diplomacy": nationDiplomacy
+        "political_power": nation.political_power - ppCost,
+        "diplomacy": nationDiplomacy
     })
 
     return {

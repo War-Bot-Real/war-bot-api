@@ -38,8 +38,8 @@ def buyItem(nation, gameData, item, quantity):
     gameData.updateNation(
         nation.name,
         {
-            "Balance": newbalance,
-            "Inventory": inventory
+            "balance": newbalance,
+            "inventory": inventory
         }
     )
 

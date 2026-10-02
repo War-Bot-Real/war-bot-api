@@ -4,7 +4,7 @@ def registerNation(gameData, nation: Nation, ruler, channel):
     if nation.ruler != 0:
         raise ValueError("That nation already has a ruler!")
 
-    gameData.updateNation(nation.name, {"ruler": ruler, "Channel": channel})
+    gameData.updateNation(nation.name, {"ruler": ruler, "channel": channel})
 
     return {
         "nation": nation.name,

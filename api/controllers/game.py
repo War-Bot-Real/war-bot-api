@@ -36,14 +36,14 @@ def getAllTerr():
 @router.get("/territory/{name}")
 def getTerr(name: str):
     # All aspects of a territory are public information
-    res = supabase.table("territories").select("*").ilike("Name", name).execute()
+    res = supabase.table("territories").select("*").ilike("name", name).execute()
 
     if not res.data:
         raise HTTPException(status_code=404, detail="Territory not found")
 
     return res.data[0]
   
-nationPublicFields = ["Name", "Ideology", "Flag", "Demonym", "Color", "Capital", "Diplomacy"]
+nationPublicFields = ["name", "ideology", "flag", "demonym", "color", "capital", "diplomacy"]
 
 @router.get("/nations")
 def getNations():
@@ -54,29 +54,29 @@ def getNations():
 @router.get("/nation/{nation}")
 def getNation(nation: str, user = Depends(get_current_user)):
   if user["admin"]:
-    res = supabase.table("nations").select("*").eq("Name", nation).execute()
+    res = supabase.table("nations").select("*").eq("name", nation).execute()
   elif user["nation"] == nation:
-    res = supabase.table("nations").select("*").eq("Name", nation).execute()
+    res = supabase.table("nations").select("*").eq("name", nation).execute()
   elif user.get("source") == "bot":
-    res = supabase.table("nations").select(", ".join(nationPublicFields + ["Channel"])).eq("Name", nation).execute()
+    res = supabase.table("nations").select(", ".join(nationPublicFields + ["channel"])).eq("name", nation).execute()
   else:
-    res = supabase.table("nations").select(", ".join(nationPublicFields)).eq("Name", nation).execute()
+    res = supabase.table("nations").select(", ".join(nationPublicFields)).eq("name", nation).execute()
   
   return res.data[0]
 
 @router.get("/territories/{nation}")
 def getNationTerr(nation: str):
-    nations = [i["Name"].lower() for i in getNations()]
+    nations = [i["name"].lower() for i in getNations()]
     if nation.lower() not in nations:
         raise HTTPException(status_code=404, detail="Nation does not exist")
       
     # All aspects of a territory are public information
-    res = supabase.table("territories").select("*").ilike("Nation", nation).execute()
+    res = supabase.table("territories").select("*").ilike("nation", nation).execute()
     return res.data
   
 @router.get("/borders/terr/{name}")
 def getBordersTerr(name: str):
-    res = supabase.table("territories").select("Bordering").ilike("Name", name).execute()
+    res = supabase.table("territories").select("bordering").ilike("name", name).execute()
 
     if not res.data:
         raise HTTPException(status_code=404, detail="No territory found")
@@ -89,13 +89,13 @@ def getBordersNat(name: str):
   
   borders = set()
   for i in terrlist:
-    borders.update(getBordersTerr(i.name)["Bordering"])
+    borders.update(getBordersTerr(i.name)["bordering"])
   
   borders = borders - set([i.name for i in terrlist])
   
   data = []
   for i in borders:
-    data.append({"Name": i, "Nation": getTerr(i)["Nation"]})
+    data.append({"Name": i, "Nation": getTerr(i)["nation"]})
   return data
 
 @router.get("/distance/{from_territory}/{to_territory}")
@@ -103,8 +103,8 @@ def getDistance(from_territory: str, to_territory: str):
     from_res = (
         supabase
         .table("territories")
-        .select("Name, Location")
-        .ilike("Name", from_territory)
+        .select("name, location")
+        .ilike("name", from_territory)
         .execute()
     )
 
@@ -114,16 +114,16 @@ def getDistance(from_territory: str, to_territory: str):
     to_res = (
         supabase
         .table("territories")
-        .select("Name, Location")
-        .ilike("Name", to_territory)
+        .select("name, location")
+        .ilike("name", to_territory)
         .execute()
     )
 
     if not to_res.data:
         raise HTTPException(status_code=404, detail="Destination territory not found")
 
-    loc1 = from_res.data[0]["Location"]
-    loc2 = to_res.data[0]["Location"]
+    loc1 = from_res.data[0]["location"]
+    loc2 = to_res.data[0]["location"]
 
     x1, y1 = loc1[0]
     x2, y2 = loc2[0]
@@ -131,8 +131,8 @@ def getDistance(from_territory: str, to_territory: str):
     distance = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
 
     return {
-        "from": from_res.data[0]["Name"],
-        "to": to_res.data[0]["Name"],
+        "from": from_res.data[0]["name"],
+        "to": to_res.data[0]["name"],
         "distance": distance
     }
 
@@ -141,14 +141,14 @@ def getPlayers():
     data = gameData.getDefaultGameData()
     show_ids = data["Settings"]["Admin"]["Anonymous Players"]["Value"]
 
-    res = supabase.table("nations").select("Name, Flag, Ideology, ruler").execute()
+    res = supabase.table("nations").select("name, flag, ideology, ruler").execute()
 
     players = []
     for nation in res.data:
         players.append({
-            "Nation": nation["Name"],
-            "Flag": nation["Flag"],
-            "Ideology": nation["Ideology"],
+            "Nation": nation["name"],
+            "Flag": nation["flag"],
+            "Ideology": nation["ideology"],
             "Ruler": nation["ruler"] if show_ids else None
         })
 
@@ -165,7 +165,7 @@ def getSea(name: str):
         supabase
         .table("seas")
         .select("*")
-        .ilike("Name", name)
+        .ilike("name", name)
         .execute()
     )
 
@@ -179,8 +179,8 @@ def getBordersSea(name: str):
     res = (
         supabase
         .table("seas")
-        .select("Bordering")
-        .ilike("Name", name)
+        .select("bordering")
+        .ilike("name", name)
         .execute()
     )
 
@@ -241,21 +241,21 @@ def settax(rate: int, user = Depends(get_current_user)):
   if rate > 100:
     raise HTTPException(status_code=400, detail="Tax rate cannot be above 100!")
   
-  res = supabase.table("nations").update({"Tax Rate": rate}).eq("Name", user["nation"]).execute()
+  res = supabase.table("nations").update({"tax_rate": rate}).eq("name", user["nation"]).execute()
   return res.data[0]
 
 @router.get("/bal")
 def balance(user = Depends(get_current_user)):
   checkNation(user)
   
-  res = supabase.table("nations").select('Balance, Stability, "Political Power"').eq("Name", user["nation"]).execute()
+  res = supabase.table("nations").select("balance, stability, political_power").eq("name", user["nation"]).execute()
   return res.data[0]
 
 @router.get("/inv")
 def inventory(user = Depends(get_current_user)):
   checkNation(user)
   
-  res = supabase.table("nations").select("Inventory").eq("Name", user["nation"]).execute()
+  res = supabase.table("nations").select("inventory").eq("name", user["nation"]).execute()
   return res.data[0]
   
 @router.post("/income/collect")
@@ -321,7 +321,7 @@ def deploy(request: DeployRequest, user=Depends(get_current_user)):
     checkNation(user)
     nation = gameData.getNation(user["nation"])
 
-    territory = supabase.table("territories").select("*").eq("Name", request.territory).execute()
+    territory = supabase.table("territories").select("*").eq("name", request.territory).execute()
 
     if not territory.data:
         raise HTTPException(status_code=404, detail="Territory not found")

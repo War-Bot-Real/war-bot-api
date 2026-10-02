@@ -48,8 +48,8 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
             raise HTTPException(status_code=404, detail="Player not found")
 
     player = res.data[0]
-    nation_res = supabase.table("nations").select("Name").eq("ruler", player["id"]).execute()
-    player["nation"] = nation_res.data[0]["Name"] if nation_res.data else None
+    nation_res = supabase.table("nations").select("name").eq("ruler", player["id"]).execute()
+    player["nation"] = nation_res.data[0]["name"] if nation_res.data else None
     player["source"] = "bot" if token == BOT_TOKEN else "website"
     return player
 

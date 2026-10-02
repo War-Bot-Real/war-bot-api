@@ -32,7 +32,7 @@ def calcRevByTerr(gameData, nation):
   terr = gameData.getNationTerr(nation.name)
   rev = {}
   for t in terr:
-    rev[t.name] = round(calcTerritoryRev(gameData.gameTime(), t, nation) * nation.taxRate / 2000, 2)
+    rev[t.name] = round(calcTerritoryRev(gameData.gameTime(), t, nation) * nation.tax_rate / 2000, 2)
   return rev
 
 def collectIncome(gameData, nation):
@@ -43,7 +43,7 @@ def collectIncome(gameData, nation):
     gameData.updateNation(
         nation.name,
         {
-            "Balance": nation.balance + revenue
+            "balance": nation.balance + revenue
         }
     )
 

@@ -32,8 +32,8 @@ class GameData:
         return matches[0]
 
     def updateNation(self, nationName, changes):
-        # changes is a dict of column names and their new values, e.g. {"Balance": 1000, "last": {...}}
-        return self.supabase.table("nations").update(changes).eq("Name", nationName).execute()
+        # changes is a dict of column names and their new values, e.g. {"balance": 1000, "last": {...}}
+        return self.supabase.table("nations").update(changes).eq("name", nationName).execute()
 
     # ---------- Territories / Seas ----------
     
@@ -43,7 +43,7 @@ class GameData:
         return [Territory(t) for t in res.data]
 
     def getNationTerr(self, nationName: str) -> list[Territory]:
-        res = self.supabase.table("territories").select("*").eq("Nation", nationName).execute()
+        res = self.supabase.table("territories").select("*").eq("nation", nationName).execute()
 
         return [Territory(t) for t in res.data]
     
