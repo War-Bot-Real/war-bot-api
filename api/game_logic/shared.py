@@ -31,3 +31,21 @@ def quadify(arg):
       z += "0"
   z += arg
   return (z)
+  
+def pxToKm(gameData, distance):
+    return distance * gameData.getMapData()["pxToKm"]
+
+def calcDistance(tile1, tile2):
+    loc1 = tile1["Location"]
+    loc2 = tile2["Location"]
+
+    if "Coast" in tile1:
+        loc1 = loc1[0]
+
+    if "Coast" in tile2:
+        loc2 = loc2[0]
+
+    x1, y1 = float(loc1[0]), float(loc1[1])
+    x2, y2 = float(loc2[0]), float(loc2[1])
+
+    return ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
