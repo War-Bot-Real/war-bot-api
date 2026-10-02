@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 from supabase import Client
 from api.realtime import broadcast
 from api.game_logic.shared import findItem, quadify
+from api.models.tile import Territory, Sea
 
 EPOCH = datetime(1970, 1, 1, tzinfo=ZoneInfo("America/Toronto"))
 
@@ -39,12 +40,12 @@ class GameData:
     def getAllTerr(self):
         res = self.supabase.table("territories").select("*").execute()
 
-        return res.data
+        return [Territory(t) for t in res.data]
 
     def getNationTerr(self, nationName):
         res = self.supabase.table("territories").select("*").eq("Nation", nationName).execute()
 
-        return res.data
+        return [Territory(t) for t in res.data]
     
     def getTerritory(self, name):
       matches = findItem(name, self.getAllTerr(), "Name")
@@ -55,12 +56,12 @@ class GameData:
       if len(matches) > 1:
           raise ValueError(f"Multiple territories found for '{name}'")
 
-      return matches[0]
+      return Territory(matches[0])
     
     def getAllSeas(self):
         res = self.supabase.table("seas").select("*").execute()
 
-        return res.data
+        return [Sea(s) for s in res.data]
       
     def getSea(self, name):
       matches = findItem(name, self.getAllSeas(), "Name")
@@ -105,7 +106,7 @@ class GameData:
         query = self.supabase.table("units").select("*")
 
         if nation is not None:
-            territories = [t["Name"] for t in self.getNationTerr(nation)]
+            territories = [t.name for t in self.getNationTerr(nation)]
             query = query.or_(f'Nation.ilike.{nation},Location.in.({",".join(territories)})')
 
         return query.execute().data

@@ -35,13 +35,7 @@ def getAllTerr():
 @router.get("/territory/{name}")
 def getTerr(name: str):
     # All aspects of a territory are public information
-    res = (
-        supabase
-        .table("territories")
-        .select("*")
-        .ilike("Name", name)
-        .execute()
-    )
+    res = supabase.table("territories").select("*").ilike("Name", name).execute()
 
     if not res.data:
         raise HTTPException(status_code=404, detail="Territory not found")
@@ -87,13 +81,7 @@ def getNationTerr(nation: str):
   
 @router.get("/borders/terr/{name}")
 def getBordersTerr(name: str):
-    res = (
-        supabase
-        .table("territories")
-        .select("Bordering")
-        .ilike("Name", name)
-        .execute()
-    )
+    res = supabase.table("territories").select("Bordering").ilike("Name", name).execute()
 
     if not res.data:
         raise HTTPException(status_code=404, detail="No territory found")
@@ -106,10 +94,9 @@ def getBordersNat(name: str):
   
   borders = set()
   for i in terrlist:
-    print(i["Name"])
-    borders.update(getBordersTerr(i["Name"])["Bordering"])
+    borders.update(getBordersTerr(i.name)["Bordering"])
   
-  borders = borders - set([i["Name"] for i in terrlist])
+  borders = borders - set([i.name for i in terrlist])
   
   data = []
   for i in borders:

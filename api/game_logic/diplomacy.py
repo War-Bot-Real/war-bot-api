@@ -147,10 +147,7 @@ def createWhitePeaceTreaty(gameData, nation, target):
     participants = [nation["Name"], target["Name"]] + target["Diplomacy"]["Allies"]
 
     for participant in participants:
-        treaty["borders"][participant] = [
-            territory["Name"]
-            for territory in gameData.getNationTerr(participant)
-        ]
+        treaty["borders"][participant] = [territory.name for territory in gameData.getNationTerr(participant)]
 
     if target.get("ruler") is None:
         treaty["ratifiers"].append(target["Name"])

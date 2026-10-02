@@ -133,7 +133,7 @@ def getForces(gameData, nation, domain=None, theater=None):
     territories = {}
     abroad = {}
     carriers = {}
-    nationTerritories = [t["Name"] for t in gameData.getNationTerr(nation["Name"])]
+    nationTerritories = [t.name for t in gameData.getNationTerr(nation["Name"])]
     
     for unit in units:
         location = unit["Location"]
@@ -280,7 +280,7 @@ def disbandUnit(gameData, nation, unitName):
     if not ownUnit:
         territory = gameData.getTerritory(unit["Location"])
 
-        if territory["Nation"] != nation["Name"]:
+        if territory.nation != nation.name:
             raise ValueError("That unit is not yours")
 
         unitData = getUnitData(gameData, unit["Type"])[0]

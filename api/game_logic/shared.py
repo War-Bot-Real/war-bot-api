@@ -13,9 +13,11 @@ def findItem(item, items, key) -> list:
   matches = []
   
   for i in items:
-    if i[key].lower() == item:
+    value = getattr(i, key) if not isinstance(i, dict) else i[key]
+    
+    if value.lower() == item:
       return [i]
-    if item in i[key].lower():
+    if item in value.lower():
       matches.append(i)
   
   return matches

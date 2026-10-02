@@ -1,3 +1,5 @@
+from api.models.tile import Territory
+
 economicActivity = {
   "Unintegrated": 0.5,
   "Radar Station": 1.00,
@@ -12,14 +14,14 @@ economicActivity = {
   "Financial Center": 2
 }
 
-def calcTerritoryRev(gameTime, territory, nation) -> float:
-  r = territory["Population"] ** 0.8
-  for b in territory["Buildings"]:
+def calcTerritoryRev(gameTime, territory: Territory, nation) -> float:
+  r = territory.pop ** 0.8
+  for b in territory.buildings:
     if "Statue" not in b:
       r *= economicActivity[b]
-  if territory["Name"] == nation["Capital"]:
+  if territory.name == nation["Capital"]:
     r *= economicActivity["Capital"]
-  if territory["Integrated"] > gameTime:
+  if territory.integrated > gameTime:
     r *= economicActivity["Unintegrated"]
   return r * calcStabRevEffect(nation["Stability"])
   
@@ -30,7 +32,7 @@ def calcRevByTerr(gameData, nation):
   terr = gameData.getNationTerr(nation["Name"])
   rev = {}
   for t in terr:
-    rev[t["Name"]] = round(calcTerritoryRev(gameData.gameTime(), t, nation) * nation["Tax Rate"] / 2000, 2)
+    rev[t.name] = round(calcTerritoryRev(gameData.gameTime(), t, nation) * nation["Tax Rate"] / 2000, 2)
   return rev
 
 def collectIncome(gameData, nation):
