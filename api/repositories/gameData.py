@@ -186,12 +186,13 @@ class GameData:
     
     # ---------- Messages ----------
     
-    def createMessage(self, sender, recipient, messageType, message):
+    def createMessage(self, sender, recipient, messageType, message, details = {}):
         res = self.supabase.table("messages").insert({
             "sender": sender,
             "recipient": recipient,
             "type": messageType,
-            "message": message
+            "message": message,
+            "details": details
         }).execute()
 
         result = res.data[0]
