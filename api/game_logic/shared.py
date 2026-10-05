@@ -1,6 +1,5 @@
 from api.models import Territory
 
-
 def formatList(l: list, conjunction: str = "and"):
   l = l.copy()
   if len(l) < 2:
@@ -52,5 +51,4 @@ def calcDistance(tile1, tile2):
 
     x1, y1 = float(loc1[0]), float(loc1[1])
     x2, y2 = float(loc2[0]), float(loc2[1])
-    return ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
     return ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
