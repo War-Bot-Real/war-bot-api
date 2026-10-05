@@ -82,7 +82,7 @@ class GameData:
     def getUnit(self, id, throwError = False):
       units = self.getUnits()
       for unit in units:
-          if unit["Name"].lower() == id.lower():
+          if unit["name"].lower() == id.lower():
               return unit
 
       matched = None
@@ -95,7 +95,7 @@ class GameData:
       if matched:
           id = quadify(id.removesuffix(matched)) + matched.upper()
           for unit in units:
-              if unit["Name"].upper() == id:
+              if unit["name"].upper() == id:
                   return unit
                 
       if throwError:
@@ -107,15 +107,15 @@ class GameData:
 
         if nation is not None:
             territories = [t.name for t in self.getNationTerr(nation)]
-            query = query.or_(f'Nation.ilike.{nation},Location.in.({",".join(territories)})')
+            query = query.or_(f'nation.ilike.{nation},location.in.({",".join(territories)})')
 
         return query.execute().data
 
     def updateUnit(self, id, changes):
-        return self.supabase.table("units").update(changes).eq("Name", id).execute()
+        return self.supabase.table("units").update(changes).eq("name", id).execute()
 
     def deleteUnit(self, id):
-        return self.supabase.table("units").delete().eq("Name", id).execute()
+        return self.supabase.table("units").delete().eq("name", id).execute()
 
     def getUnitCounters(self):
         res = self.supabase.table("unitcounters").select("*").execute()

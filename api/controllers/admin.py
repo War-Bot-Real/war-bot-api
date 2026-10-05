@@ -5,7 +5,7 @@ from api.database import gameData
 from api.auth import checkAdmin
 from api.game_logic.admin import registerNation
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+router = APIRouter(tags=["admin"])
 
 class RegisterRequest(BaseModel):
     nation: str

@@ -80,13 +80,13 @@ def deployUnit(gameData, nation, territory, unit, quantity):
 
     # Create deployed unit
     gameData.createUnit({
-        "Name": unitid,
-        "Type": unit,
-        "Quantity": quantity * unitdata["Each"],
-        "Nation": nation.name,
-        "Location": territory.name,
-        "Active": active,
-        "TiredUntil": 0
+        "name": unitid,
+        "type": unit,
+        "quantity": quantity * unitdata["Each"],
+        "nation": nation.name,
+        "location": territory.name,
+        "active": active,
+        "tiredUntil": 0
     })
 
 
@@ -125,10 +125,10 @@ def getForces(gameData, nation, domain=None, theater=None):
     units = gameData.getUnits(nation.name)
 
     if domain is not None:
-        units = [u for u in units if getDomain(gameData, u["Type"]) == domain]
+        units = [u for u in units if getDomain(gameData, u["type"]) == domain]
 
     if territoryNames is not None:
-        units = [u for u in units if u["Location"] in territoryNames]
+        units = [u for u in units if u["location"] in territoryNames]
 
     territories = {}
     abroad = {}
@@ -136,7 +136,7 @@ def getForces(gameData, nation, domain=None, theater=None):
     nationTerritories = [t.name for t in gameData.getNationTerr(nation.name)]
     
     for unit in units:
-        location = unit["Location"]
+        location = unit["location"]
         potentialUnit = gameData.getUnit(location)
 
         if location in nationTerritories:
@@ -166,7 +166,7 @@ def mergeUnits(gameData, nation, unitNames):
             invalid.append(name)
             continue
 
-        if unit["Nation"] != nation.name:
+        if unit["nation"] != nation.name:
             invalid.append(name)
             continue
 
@@ -181,13 +181,13 @@ def mergeUnits(gameData, nation, unitNames):
 
     for unit in units[1:]:
         if (
-            unit["Type"] == base["Type"]
-            and unit["Location"] == base["Location"]
-            and unit["Active"] == base["Active"]
+            unit["type"] == base["type"]
+            and unit["location"] == base["location"]
+            and unit["active"] == base["active"]
         ):
             mergeable.append(unit)
         else:
-            failed.append(unit["Name"])
+            failed.append(unit["name"])
 
     if not mergeable:
         raise ValueError("No units can be merged. Units must have the same type, location, and active status.")
@@ -195,25 +195,25 @@ def mergeUnits(gameData, nation, unitNames):
     allUnits = gameData.getUnits()
     for unit in mergeable:
         for loadedUnit in allUnits:
-            if loadedUnit["Location"] == unit["Name"]:
-                gameData.updateUnit(loadedUnit["Name"], {
-                    "Location": base["Name"]
+            if loadedUnit["location"] == unit["name"]:
+                gameData.updateUnit(loadedUnit["name"], {
+                    "location": base["name"]
                 })
 
-    quantity = base["Quantity"] + sum(unit["Quantity"] for unit in mergeable)
-    tiredUntil = max([base["TiredUntil"]] + [unit["TiredUntil"] for unit in mergeable])
+    quantity = base["quantity"] + sum(unit["quantity"] for unit in mergeable)
+    tiredUntil = max([base["tiredUntil"]] + [unit["tiredUntil"] for unit in mergeable])
 
-    gameData.updateUnit(base["Name"], {
-        "Quantity": quantity,
-        "TiredUntil": tiredUntil
+    gameData.updateUnit(base["name"], {
+        "quantity": quantity,
+        "tiredUntil": tiredUntil
     })
 
     for unit in mergeable:
-        gameData.deleteUnit(unit["Name"])
+        gameData.deleteUnit(unit["name"])
 
     return {
-        "unit": base["Name"],
-        "merged": [unit["Name"] for unit in mergeable],
+        "unit": base["name"],
+        "merged": [unit["name"] for unit in mergeable],
         "failed": failed
     }
 
@@ -223,26 +223,26 @@ def splitUnit(gameData, nation, unitName, divisions=2):
     if not unit:
         raise ValueError(f"Unit '{unitName}' not found")
 
-    if unit["Nation"] != nation.name:
+    if unit["nation"] != nation.name:
         raise ValueError("You don't own that unit")
 
     if divisions < 2:
         raise ValueError("You must split into at least 2 divisions")
 
-    quantity = unit["Quantity"] // divisions
-    unitData = getUnitData(gameData, unit["Type"])[1]
+    quantity = unit["quantity"] // divisions
+    unitData = getUnitData(gameData, unit["type"])[1]
 
     if quantity < unitData["Minimum"]:
         raise ValueError("The resulting divisions would be too small")
 
     loaded = gameData.getUnits()
-    if any(u["Location"] == unit["Name"] for u in loaded):
+    if any(u["location"] == unit["name"] for u in loaded):
         raise ValueError("Can't split loaded carriers")
 
-    remainder = unit["Quantity"] - quantity * divisions
+    remainder = unit["quantity"] - quantity * divisions
 
-    gameData.updateUnit(unit["Name"], {
-        "Quantity": quantity + remainder
+    gameData.updateUnit(unit["name"], {
+        "quantity": quantity + remainder
     })
 
     newUnits = []
@@ -252,21 +252,21 @@ def splitUnit(gameData, nation, unitName, divisions=2):
         unitId = quadify(count) + unitData["Short Form"]
 
         newUnit = {
-            "Name": unitId,
-            "Type": unit["Type"],
-            "Quantity": quantity,
-            "Nation": unit["Nation"],
-            "Location": unit["Location"],
-            "TiredUntil": unit["TiredUntil"],
-            "Active": unit["Active"]
+            "name": unitId,
+            "type": unit["type"],
+            "quantity": quantity,
+            "nation": unit["nation"],
+            "location": unit["location"],
+            "tiredUntil": unit["tiredUntil"],
+            "active": unit["active"]
         }
 
         gameData.createUnit(newUnit)
         newUnits.append(newUnit)
 
     return {
-        "original": unit["Name"],
-        "divisions": [unit["Name"]] + [u["Name"] for u in newUnits]
+        "original": unit["name"],
+        "divisions": [unit["name"]] + [u["name"] for u in newUnits]
     }
 
 def disbandUnit(gameData, nation, unitName):
@@ -275,34 +275,34 @@ def disbandUnit(gameData, nation, unitName):
     if not unit:
         raise ValueError(f"Unit '{unitName}' not found")
 
-    ownUnit = unit["Nation"] == nation.name
+    ownUnit = unit["nation"] == nation.name
 
     if not ownUnit:
-        territory = gameData.getTerritory(unit["Location"])
+        territory = gameData.getTerritory(unit["location"])
 
         if territory.nation != nation.name:
             raise ValueError("That unit is not yours")
 
-        unitData = getUnitData(gameData, unit["Type"])[0]
+        unitData = getUnitData(gameData, unit["type"])[0]
 
         if unitData == "Naval":
             raise ValueError("You cannot disband another nation's naval unit")
 
-        if unit["Nation"] in nation.diplomacy["Trusted"]:
+        if unit["nation"] in nation.diplomacy["Trusted"]:
             raise ValueError(f"You currently trust {unit['Nation']}, so you cannot disband their unit")
 
     # TODO: Prevent disbanding units belonging to a nation that recently broke a trusted agreement until their evacuation truce expires.
 
-    loaded = [u for u in gameData.getUnits() if u["Location"] == unit["Name"]]
-    disbanded = [unit["Name"]]
+    loaded = [u for u in gameData.getUnits() if u["location"] == unit["name"]]
+    disbanded = [unit["name"]]
 
-    gameData.deleteUnit(unit["Name"])
+    gameData.deleteUnit(unit["name"])
 
     for loadedUnit in loaded:
-        gameData.deleteUnit(loadedUnit["Name"])
-        disbanded.append(loadedUnit["Name"])
+        gameData.deleteUnit(loadedUnit["name"])
+        disbanded.append(loadedUnit["name"])
 
     return {
-        "unit": unit["Name"],
+        "unit": unit["name"],
         "disbanded": disbanded
     }
