@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 from supabase import Client
 from api.realtime import broadcast
 from api.game_logic.shared import findItem, quadify
-from api.models import Territory, Sea, Nation
+from api.models import Territory, Sea, Nation, Unit
 
 EPOCH = datetime(1970, 1, 1, tzinfo=ZoneInfo("America/Toronto"))
 
@@ -77,12 +77,12 @@ class GameData:
     # ---------- Units ----------
 
     def createUnit(self, unit):
-        return self.supabase.table("units").insert(unit).execute()
+        self.supabase.table("units").insert(unit).execute()
         
     def getUnit(self, id, throwError = False):
       units = self.getUnits()
       for unit in units:
-          if unit["name"].lower() == id.lower():
+          if unit.name.lower() == id.lower():
               return unit
 
       matched = None
@@ -95,7 +95,7 @@ class GameData:
       if matched:
           id = quadify(id.removesuffix(matched)) + matched.upper()
           for unit in units:
-              if unit["name"].upper() == id:
+              if unit.name.upper() == id:
                   return unit
                 
       if throwError:
@@ -109,13 +109,13 @@ class GameData:
             territories = [t.name for t in self.getNationTerr(nation)]
             query = query.or_(f'nation.ilike.{nation},location.in.({",".join(territories)})')
 
-        return query.execute().data
+        return [Unit(u) for u in query.execute().data]
 
     def updateUnit(self, id, changes):
-        return self.supabase.table("units").update(changes).eq("name", id).execute()
+        self.supabase.table("units").update(changes).eq("name", id).execute()
 
     def deleteUnit(self, id):
-        return self.supabase.table("units").delete().eq("name", id).execute()
+        self.supabase.table("units").delete().eq("name", id).execute()
 
     def getUnitCounters(self):
         res = self.supabase.table("unitcounters").select("*").execute()

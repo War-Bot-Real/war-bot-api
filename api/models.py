@@ -42,3 +42,13 @@ class Nation:
     self.centralized = data["centralized"]
     self.last = data["last"]
     self.theaters = data["theaters"]
+
+class Unit:
+  def __init__(self, data):
+    self.name = data["name"]
+    self.type = data["type"]
+    self.quantity = data["quantity"]
+    self.nation = data["nation"]
+    self.location = data["location"]
+    self.tiredUntil = data["tiredUntil"]
+    self.active = data["active"]
