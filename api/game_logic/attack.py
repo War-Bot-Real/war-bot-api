@@ -1,7 +1,7 @@
 
 from api.models import Territory, Sea, Nation, Unit
 from api.game_logic.military import getUnitData
-from api.game_logic.shared import calcDistance, pxToKm, formatTime
+from api.game_logic.shared import calcDistance, pxToKm, formatTime, findquan, addToDict
 
 def station(gameData, division):
     if isinstance(division, str):
@@ -119,6 +119,25 @@ def findFuelRequired(gameData, unitlist: list[Unit], action: str) -> float:
         fuelRequired += data["Fuel"][action.title()] * unit.quantity / data["Each"]
 
     return fuelRequired
+
+def casByNation(cas: dict[Unit, int]):
+  byNation = {}
+  for i in cas:
+    if i.nation in byNation:
+      if i.type in byNation[i.nation]:
+        byNation[i.nation][i.type] += cas[i]
+      else:
+        byNation[i.nation][i.type] = cas[i]
+    else:
+      byNation[i.nation] = {i.type: cas[i]}
+  return byNation
+
+def addToAllCas(allcas: dict, newcas: dict):
+  for nation in newcas:
+    if nation in allcas:
+      addToDict(allcas[nation], newcas[nation])
+    else:
+      allcas[nation] = newcas[nation]
 
 def attack(gameData, nation: Nation, target: Territory | Sea, units: list[Unit]):
     # ---------- Defender ----------

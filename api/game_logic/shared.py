@@ -78,3 +78,15 @@ def calcDistance(tile1, tile2):
     x2, y2 = float(loc2[0]), float(loc2[1])
     return ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
 
+def findquan(units):
+  quan = 0
+  for i in units:
+    quan += i.quantity
+  return quan
+
+def addToDict(dict1: dict[any, int], toAdd: dict[any, int]):
+  for i in toAdd:
+    if i in dict1:
+      dict1[i] += toAdd[i]
+    else:
+      dict1[i] = toAdd[i]
