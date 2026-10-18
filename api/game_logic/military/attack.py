@@ -1,78 +1,8 @@
 
 from api.models import Territory, Sea, Nation, Unit
-from api.game_logic.military import getUnitData
-from api.game_logic.shared import calcDistance, pxToKm, formatTime, findquan, addToDict
-
-def station(gameData, division):
-    if isinstance(division, str):
-        units = gameData.getUnit(division)
-        if not units:
-            return None
-        division = units[0]
-
-    try:
-        return gameData.getTerritory(division.location)
-    except ValueError:
-        pass
-
-    try:
-        return gameData.getSea(division.location)
-    except ValueError:
-        pass
-
-    units = gameData.getUnit(division.location)
-    if units:
-        return units[0]
-
-    return None
-
-def getCapacity(gameData, unit):
-    data = getUnitData(gameData, unit.type)[1]
-    return unit.quantity * data.get("Capacity", 0)
-  
-def getAllBorders(gameData, tile):
-    borders = tile.bordering.copy()
-
-    if isinstance(tile, Territory):
-        borders += tile.coast
-
-        for unit in gameData.getUnits():
-            if unit.location == tile.name and getCapacity(gameData, unit) > 0:
-                borders.append(unit.name)
-    else:
-        for territory in gameData.getAllTerr():
-            if tile.name in territory.coast:
-                borders.append(territory.name)
-
-    return borders
-  
-def inRange(gameData, plane, target, roundTrip=True):
-    if plane.location in getAllBorders(gameData, target):
-        return True
-
-    unitData = getUnitData(gameData, plane.type)[1]
-    unitRange = unitData["Range"]
-
-    location = station(gameData, plane)
-
-    if location is None:
-        return False
-
-    if isinstance(location, Unit):
-        location = station(gameData, location)
-
-        if location is None:
-            return False
-
-        if location.name in getAllBorders(gameData, target):
-            return True
-
-    distance = calcDistance(location, target)
-
-    if roundTrip:
-        distance *= 2
-
-    return pxToKm(gameData, distance) < unitRange
+from api.game_logic.military.management import getUnitData
+from api.game_logic.shared import formatTime, findquan, addToDict
+from api.game_logic.military.shared import canTakeoff, inRange, findCoastOccupant, findFuelRequired, findOwner, getAllBorders
 
 def strength(gameData, divs: list[Unit], type: str) -> float:
     total = 0
@@ -87,38 +17,6 @@ def strength(gameData, divs: list[Unit], type: str) -> float:
         total += unit.quantity / data["Each"] * unitStrength * (1.5 if not unit.active else 1)
 
     return total
-
-def canTakeoff(plane: Unit):
-  s = station(plane)
-  if isinstance(s, Unit):
-    if s.type == "Aircraft Carrier":
-      return True
-    return False
-  if isinstance(s, Territory):
-    if "Airport" in s.buildings or "Airstrip" in s.buildings:
-      return True
-  return False #Shouldn't ever reach here
-
-def findOwner(gameData, sea):
-    for unit in gameData.getUnits():
-        if unit.location == sea.name and getUnitData(gameData, unit.type)[0] == "Naval" and unit.type != "Submarine":
-            return gameData.getNation(unit.nation)
-    return None
-
-def findCoastOccupant(gameData, territory):
-    for unit in gameData.getUnits():
-        if unit.location == territory.name and getUnitData(gameData, unit.type)[0] == "Naval":
-            return gameData.getNation(unit.nation)
-    return None
-
-def findFuelRequired(gameData, unitlist: list[Unit], action: str) -> float:
-    fuelRequired = 0.0
-
-    for unit in unitlist:
-        data = getUnitData(gameData, unit.type)[1]
-        fuelRequired += data["Fuel"][action.title()] * unit.quantity / data["Each"]
-
-    return fuelRequired
 
 def casByNation(cas: dict[Unit, int]):
   byNation = {}

@@ -11,7 +11,7 @@ from api.database import gameData, supabase
 from api.models import Nation, Territory
 from api.game_logic.income import collectIncome, calcRevByTerr
 from api.game_logic.shop import buyItem
-from api.game_logic.military import deployUnit, getForces, mergeUnits, splitUnit, disbandUnit
+from api.game_logic.military.management import deployUnit, getForces, mergeUnits, splitUnit, disbandUnit
 from api.game_logic.diplomacy import allyNation, declareWar
 from api.game_logic.admin import registerNation
 from api.game_logic.top import top
