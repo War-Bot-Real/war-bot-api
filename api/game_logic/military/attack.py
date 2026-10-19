@@ -1,4 +1,4 @@
-
+import random
 from api.models import Territory, Sea, Nation, Unit
 from api.game_logic.military.management import getUnitData
 from api.game_logic.shared import formatTime, findquan, addToDict
@@ -45,6 +45,17 @@ def addToAllCas(allcas: dict, newcas: dict):
       addToDict(allcas[nation], newcas[nation])
     else:
       allcas[nation] = newcas[nation]
+
+def divideUnit(unit: Unit) -> list[Unit]:
+    return [Unit({
+        "name": unit.name,
+        "type": unit.type,
+        "quantity": 1,
+        "nation": unit.nation,
+        "location": unit.location,
+        "tiredUntil": unit.tiredUntil,
+        "active": unit.active
+    }) for _ in range(unit.quantity)]
 
 def attack(gameData, nation: Nation, target: Territory | Sea, units: list[Unit]):
     # ---------- Defender ----------
@@ -511,3 +522,94 @@ def aircraftInterception(gameData, nation: Nation, planes: list[Unit], dest: Ter
     planes[:] = [plane for plane in planes if plane.quantity != 0]
 
     return FlightResponse(flownOver, lossesByTile, allNationsInvolved, enemyNationsInvolved)
+
+def groundBombardment(gameData, attDivs: list[Unit], defDivs: list[Unit], includeAttackers: bool) -> dict[Unit, int]:
+    casualties = {}
+    attBombers = {"Bomber": [], "Attacker": []}
+
+    for unit in attDivs:
+        if unit.type in attBombers:
+            if unit.type == "Attacker" and not includeAttackers:
+                continue
+            attBombers[unit.type] += divideUnit(unit)
+
+    if not attBombers["Attacker"] and not attBombers["Bomber"]:
+        return {}
+
+    priority = {}
+
+    for unit in defDivs:
+        if getUnitData(gameData, unit.type)[0] == "Ground":
+            priority.setdefault(unit.type, []).append(unit)
+
+    priority = sorted(priority, key=lambda unitType: getUnitData(gameData, unitType)[1]["Strength"]["Attack"] + getUnitData(gameData, unitType)[1]["Strength"]["Defense"], reverse=True)
+
+    for bomberType, bombers in attBombers.items():
+        if not bombers:
+            continue
+
+        bomberData = getUnitData(gameData, bomberType)[1]
+        limit = bomberData["Bombing"]["Limit"] * len(bombers)
+        divsKilled = 0
+
+        for unitType in priority:
+            unitData = getUnitData(gameData, unitType)[1]
+
+            for unit in priority[unitType]:
+                if divsKilled >= limit:
+                    break
+
+                canKill = bomberData["Bombing"]["Strength"] * len(bombers) * unit.quantity / unitData["Each"]
+                killed = round(min(canKill, limit - divsKilled) * unitData["Each"])
+                divsKilled += killed / unitData["Each"]
+                unit.quantity -= killed
+                casualties[unit] = casualties.get(unit, 0) + killed
+
+            if divsKilled >= limit:
+                break
+
+    return casualties
+
+def fighterBattle(gameData, attDivs: list[Unit], defDivs: list[Unit]) -> set[Unit]:
+    attplanes = {"Fighters": [], "Others": []}
+    defplanes = {"Fighters": [], "Others": []}
+
+    for unit in attDivs:
+        if unit.type == "Fighter":
+            attplanes["Fighters"] += divideUnit(unit)
+        elif getDomain(gameData, unit.type) == "Air":
+            attplanes["Others"] += divideUnit(unit)
+
+    for unit in defDivs:
+        if unit.type == "Fighter":
+            defplanes["Fighters"] += divideUnit(unit)
+        elif getDomain(gameData, unit.type) == "Air":
+            defplanes["Others"] += divideUnit(unit)
+
+    destroyed = set()
+
+    for side, enemy in [(attplanes, defplanes), (defplanes, attplanes)]:
+        for _ in side["Fighters"]:
+            targets = set(enemy["Fighters"]) - destroyed
+            if not targets:
+                targets = set(enemy["Others"]) - destroyed
+            if not targets:
+                break
+            destroyed.add(random.choice(list(targets)))
+
+    for unit in destroyed:
+        if unit in attplanes["Fighters"]:
+            attplanes["Fighters"].remove(unit)
+        elif unit in defplanes["Fighters"]:
+            defplanes["Fighters"].remove(unit)
+
+    for side, enemy in [(attplanes, defplanes), (defplanes, attplanes)]:
+        for _ in side["Fighters"]:
+            targets = set(enemy["Fighters"]) - destroyed
+            if not targets:
+                targets = set(enemy["Others"]) - destroyed
+            if not targets:
+                break
+            destroyed.add(random.choice(list(targets)))
+
+    return destroyed
