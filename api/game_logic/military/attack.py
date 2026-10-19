@@ -2,7 +2,7 @@
 from api.models import Territory, Sea, Nation, Unit
 from api.game_logic.military.management import getUnitData
 from api.game_logic.shared import formatTime, findquan, addToDict
-from api.game_logic.military.shared import canTakeoff, inRange, findCoastOccupant, findFuelRequired, findOwner, getAllBorders
+from api.game_logic.military.shared import canTakeoff, inRange, findCoastOccupant, findFuelRequired, findOwner, getAllBorders, station
 
 def strength(gameData, divs: list[Unit], type: str) -> float:
     total = 0
@@ -29,6 +29,15 @@ def casByNation(cas: dict[Unit, int]):
     else:
       byNation[i.nation] = {i.type: cas[i]}
   return byNation
+
+def groupUnitsByType(cas: dict[Unit, int]):
+  byType = {}
+  for i in cas:
+    if i.type in byType:
+      byType[i.type] += cas[i]
+    else:
+      byType[i.type] = cas[i]
+  return byType
 
 def addToAllCas(allcas: dict, newcas: dict):
   for nation in newcas:
@@ -415,3 +424,90 @@ def attack(gameData, nation: Nation, target: Territory | Sea, units: list[Unit])
         "retreat": retreatmsg,
         "navalRetreat": navRetreatMsg
     }
+
+class FlightResponse:
+    def __init__(self, flownOver: set[Sea | Territory], lossesByTile: dict[Territory | Sea, dict[Unit, int]], allNationsInvolved: set[Nation], enemyNationsInvolved: set[Nation]):
+        self.flownOver = flownOver
+        self.lossesByTile = lossesByTile
+        self.allNationsInvolved = allNationsInvolved
+        self.enemyNationsInvolved = enemyNationsInvolved
+
+    def getCasMsg(self, nation: Nation):
+        casmsg = ""
+        for tile, losses in self.lossesByTile.items():
+            unitsLost = {unit: quantity for unit, quantity in losses.items() if unit.nation == nation.name}
+            tempcasmsg = formatIndividualCas(unitsLost)
+            if tempcasmsg:
+                casmsg += f"In __{tile.name}__{tempcasmsg}\n"
+        return casmsg
+
+    def __str__(self):
+        return f"__AIRCRAFT INTERCEPTION__\nFlown Over: {self.flownOver}\nLosses By Tile: {self.lossesByTile}\nNations Involved: {self.allNationsInvolved}\nEnemy Nations Involved: {self.enemyNationsInvolved}"
+
+def aircraftInterception(gameData, nation: Nation, planes: list[Unit], dest: Territory | Sea, includeLast: bool) -> FlightResponse | None:
+    if not planes:
+        return None
+
+    byTerr = {}
+
+    for plane in planes:
+        tile = station(gameData, plane)
+        if isinstance(tile, Unit):
+            tile = station(gameData, tile)
+        if tile is None:
+            continue
+        byTerr.setdefault(tile, []).append(plane)
+
+    flownOver = set()
+    lossesByTile = {}
+    allNationsInvolved = set()
+    enemyNationsInvolved = set()
+
+    for start, attackingPlanes in byTerr.items():
+        path = shortestPathFinder(gameData, start, dest, inOneNation=False, includeSeas=True)
+
+        for index, tile in enumerate(path[1:], start=1):
+            if not attackingPlanes:
+                break
+            if not includeLast and tile == dest:
+                continue
+
+            flownOver.add(tile)
+            enemyUnits = []
+
+            for unit in gameData.getUnits():
+                if unit.location != tile.name:
+                    continue
+
+                try:
+                    defenderNation = gameData.getNation(unit.nation)
+                except ValueError:
+                    continue
+
+                allNationsInvolved.add(defenderNation)
+
+                if gameData.atWar(nation.name, defenderNation.name) or nation.name in defenderNation.diplomacy["Enemies"]:
+                    enemyNationsInvolved.add(defenderNation)
+                    enemyUnits.append(unit)
+
+            if not enemyUnits:
+                continue
+
+            battle = fighterBattle(gameData, attackingPlanes, enemyUnits)
+            cas = executeBattleCas(gameData, attackingPlanes, enemyUnits, battle)
+            if tile in lossesByTile:
+                addToDict(lossesByTile[tile], cas)
+            else:
+                lossesByTile[tile] = cas
+
+            previousTile = path[index - 1]
+            battle = groundBasedAirDefense(gameData, attackingPlanes, enemyUnits, isinstance(previousTile, Sea))
+            cas = executeBattleCas(gameData, attackingPlanes, enemyUnits, battle)
+            if tile in lossesByTile:
+                addToDict(lossesByTile[tile], cas)
+            else:
+                lossesByTile[tile] = cas
+
+    planes[:] = [plane for plane in planes if plane.quantity != 0]
+
+    return FlightResponse(flownOver, lossesByTile, allNationsInvolved, enemyNationsInvolved)
