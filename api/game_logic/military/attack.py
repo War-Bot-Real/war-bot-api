@@ -653,3 +653,24 @@ def navalAirRaid(gameData, attDivs: list[Unit], defDivs: list[Unit], includeBomb
         targetted.add(target)
 
     return destroyed | repelled
+
+def groundBasedAirDefense(gameData, attDivs: list[Unit], defDivs: list[Unit], includeNaval: bool) -> set[Unit]:
+    attPlanes = []
+    for unit in attDivs:
+        if getDomain(gameData, unit.type) == "Air":
+            attPlanes += divideUnit(unit)
+
+    totalaa = sum(antiAirDef(gameData, unit) for unit in defDivs if getDomain(gameData, unit.type) == "Ground" or (includeNaval and getDomain(gameData, unit.type) == "Naval"))
+    if totalaa == 0 or not attPlanes:
+        return set()
+
+    airData = gameData.getDefaultGameData()["Units"]["Air"]
+    vulnerability = {unitType: data["Vulnerability"] for unitType, data in airData.items()}
+    chance = min(totalaa / len(attPlanes), 0.95 / max(vulnerability.values()))
+
+    shotdown = set()
+    for plane in attPlanes:
+        if random.random() < chance * vulnerability[plane.type]:
+            shotdown.add(plane)
+
+    return shotdown
