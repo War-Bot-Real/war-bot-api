@@ -119,3 +119,21 @@ def findFuelRequired(gameData, unitlist: list[Unit], action: str) -> float:
         fuelRequired += data["Fuel"][action.title()] * unit.quantity / data["Each"]
 
     return fuelRequired
+
+def getLoad(gameData, unit: Unit) -> list[Unit]:
+    return [loadedUnit for loadedUnit in gameData.getUnits() if loadedUnit.location == unit.name]
+
+def antiAirDef(gameData, unit: Unit) -> int | float:
+    domain = getDomain(gameData, unit.type)
+    unitdata = getUnitData(gameData, unit.type)[1]
+
+    if domain != "Naval":
+        if unit.type in ["Fighter", "Anti-Air"]:
+            return unitdata["Aircraft Interception"] * unit.quantity / unitdata["Each"]
+        return 0
+
+    for loadedUnit in getLoad(gameData, unit):
+        if loadedUnit.type == "Anti-Air":
+            return unitdata["Anti-Air Defense"] * unit.quantity / unitdata["Each"]
+
+    return 0

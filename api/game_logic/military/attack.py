@@ -2,7 +2,7 @@ import random
 from api.models import Territory, Sea, Nation, Unit
 from api.game_logic.military.management import getUnitData
 from api.game_logic.shared import formatTime, findquan, addToDict
-from api.game_logic.military.shared import canTakeoff, inRange, findCoastOccupant, findFuelRequired, findOwner, getAllBorders, station
+from api.game_logic.military.shared import getDomain, canTakeoff, inRange, findCoastOccupant, findFuelRequired, findOwner, getAllBorders, station, antiAirDef
 
 def strength(gameData, divs: list[Unit], type: str) -> float:
     total = 0
@@ -613,3 +613,43 @@ def fighterBattle(gameData, attDivs: list[Unit], defDivs: list[Unit]) -> set[Uni
             destroyed.add(random.choice(list(targets)))
 
     return destroyed
+
+def navalAirRaid(gameData, attDivs: list[Unit], defDivs: list[Unit], includeBombers: bool) -> set[Unit]:
+    attplanes = []
+    defSurfaceShips = []
+    spy = False
+
+    for unit in attDivs:
+        if unit.type == "Attacker" or (unit.type == "Bomber" and includeBombers):
+            attplanes += divideUnit(unit)
+        elif unit.type == "Spy Plane":
+            spy = True
+
+    for unit in defDivs:
+        if getDomain(gameData, unit.type) == "Naval" and unit.type != "Submarine":
+            defSurfaceShips += divideUnit(unit)
+
+    withAntiAir = {unit for unit in defSurfaceShips if antiAirDef(gameData, unit) > 0}
+    targetted = set()
+    destroyed = set()
+    repelled = set()
+
+    for plane in attplanes:
+        targets = set(defSurfaceShips) - destroyed - targetted
+        if spy:
+            targets -= withAntiAir
+        if not targets:
+            targets |= targetted
+        if not targets:
+            break
+
+        target = random.choice(list(targets))
+
+        if random.random() * 100 < antiAirDef(gameData, target):
+            repelled.add(plane)
+        elif random.random() * 100 < getUnitData(gameData, plane.type)[1]["Accuracy"]["Naval"]:
+            destroyed.add(target)
+
+        targetted.add(target)
+
+    return destroyed | repelled
