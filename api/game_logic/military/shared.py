@@ -137,3 +137,7 @@ def antiAirDef(gameData, unit: Unit) -> int | float:
             return unitdata["Anti-Air Defense"] * unit.quantity / unitdata["Each"]
 
     return 0
+
+def getNavalPower(gameData) -> dict[str, int | float]:
+    navalData = gameData.getDefaultGameData()["Units"]["Naval"]
+    return {unitType: data["Power"] for unitType, data in navalData.items()}

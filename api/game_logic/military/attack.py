@@ -2,7 +2,8 @@ import random
 from api.models import Territory, Sea, Nation, Unit
 from api.game_logic.military.management import getUnitData
 from api.game_logic.shared import formatTime, findquan, addToDict
-from api.game_logic.military.shared import getDomain, canTakeoff, inRange, findCoastOccupant, findFuelRequired, findOwner, getAllBorders, station, antiAirDef
+from api.game_logic.military.shared import getDomain, canTakeoff, inRange, findCoastOccupant, findFuelRequired, findOwner, getAllBorders, station, antiAirDef, getNavalPower
+from api.game_logic.shared import formatList
 
 def strength(gameData, divs: list[Unit], type: str) -> float:
     total = 0
@@ -674,3 +675,126 @@ def groundBasedAirDefense(gameData, attDivs: list[Unit], defDivs: list[Unit], in
             shotdown.add(plane)
 
     return shotdown
+
+class NavalBattleResponse:
+    def __init__(self, attWin: bool, destroyedShips: set[Unit], navalLogs: list[str]):
+        self.attWin = attWin
+        self.destroyedShips = destroyedShips
+        self.logs = navalLogs
+
+def navalBattle(gameData, attNation: Nation, attDivs: list[Unit], defDivs: list[Unit]) -> NavalBattleResponse:
+    attforce = {"Destroyer": [], "Battleship": [], "Submarine": [], "Other Ships": []}
+    defforce = {"Destroyer": [], "Battleship": [], "Submarine": [], "Other Ships": []}
+    logs = []
+
+    for unit in attDivs:
+        if unit.type in attforce:
+            attforce[unit.type] += divideUnit(unit)
+        elif getDomain(gameData, unit.type) == "Naval":
+            attforce["Other Ships"] += divideUnit(unit)
+
+    for unit in defDivs:
+        if unit.type in defforce:
+            defforce[unit.type] += divideUnit(unit)
+        elif getDomain(gameData, unit.type) == "Naval":
+            defforce["Other Ships"] += divideUnit(unit)
+
+    usedDestroyers = set()
+    destroyedShips = set()
+
+    for unit in attforce["Destroyer"]:
+        targets = set(defforce["Submarine"]) - destroyedShips
+        if not targets:
+            break
+        destroyedShips.add(random.choice(list(targets)))
+        usedDestroyers.add(unit)
+
+    for unit in defforce["Destroyer"]:
+        targets = set(attforce["Submarine"]) - destroyedShips
+        if not targets:
+            break
+        destroyedShips.add(random.choice(list(targets)))
+        usedDestroyers.add(unit)
+
+    logs.append(f"Attacking destroyers hunt {sum(unit in destroyedShips for unit in defforce['Submarine'])} submarines")
+    logs.append(f"Defending destroyers hunt {sum(unit in destroyedShips for unit in attforce['Submarine'])} submarines")
+
+    for unit in set(attforce["Submarine"]) - destroyedShips:
+        targets = set(defforce["Battleship"] + defforce["Destroyer"] + defforce["Other Ships"]) - destroyedShips
+        if not targets:
+            break
+        destroyedShips.add(random.choice(list(targets)))
+
+    for unit in set(defforce["Submarine"]) - destroyedShips:
+        targets = set(attforce["Battleship"] + attforce["Destroyer"] + attforce["Other Ships"]) - destroyedShips
+        if not targets:
+            break
+        destroyedShips.add(random.choice(list(targets)))
+
+    attLost = {}
+    defLost = {}
+    for unit in destroyedShips:
+        if unit.type != "Submarine":
+            if unit.nation == attNation.name:
+                addToDict(attLost, {unit.type: 1})
+            else:
+                addToDict(defLost, {unit.type: 1})
+
+    logs.append(f"Attacking submarines sink {formatList([f'{v} {k}{'s' if v != 1 else ''}' for k, v in attLost.items()])}")
+    logs.append(f"Defending submarines sink {formatList([f'{v} {k}{'s' if v != 1 else ''}' for k, v in defLost.items()])}")
+
+    navalPower = getNavalPower()
+
+    attChance = len(attforce["Battleship"]) * navalPower["Battleship"] + len(attforce["Destroyer"]) * navalPower["Destroyer"]
+    defChance = len(defforce["Battleship"]) * navalPower["Battleship"] + len(defforce["Destroyer"]) * navalPower["Destroyer"]
+
+    for unit in usedDestroyers:
+        if unit.nation == attNation.name:
+            attChance -= navalPower["Destroyer"]
+        else:
+            defChance -= navalPower["Destroyer"]
+
+    while attChance > 0 and defChance > 0:
+        logs.append(f"AttPower: {attChance}\t\tDefPower: {defChance}")
+        r = random.random() * (attChance + defChance)
+
+        if r < attChance:
+            targets = set(defforce["Battleship"] + defforce["Destroyer"]) - destroyedShips
+            if not targets:
+                break
+            destroyed = random.choice(list(targets))
+            logs.append(f"Attacker lands a hit and sinks enemy {destroyed.type.lower()}")
+            if destroyed.type == "Battleship":
+                defChance -= navalPower["Battleship"]
+            elif destroyed not in usedDestroyers:
+                defChance -= navalPower["Destroyer"]
+        else:
+            targets = set(attforce["Battleship"] + attforce["Destroyer"]) - destroyedShips
+            if not targets:
+                break
+            destroyed = random.choice(list(targets))
+            logs.append(f"Defender lands a hit and sinks enemy {destroyed.type.lower()}")
+            if destroyed.type == "Battleship":
+                attChance -= navalPower["Battleship"]
+            elif destroyed not in usedDestroyers:
+                attChance -= navalPower["Destroyer"]
+
+        destroyedShips.add(destroyed)
+
+    carriersKilled = random.randint(0, max(0, attChance))
+    for _ in range(carriersKilled):
+        if not defforce["Other Ships"]:
+            break
+        sunk = random.choice(defforce["Other Ships"])
+        destroyedShips.add(sunk)
+        logs.append(f"Attacking Ships sink {sunk.type.lower()}")
+
+    carriersKilled = random.randint(0, max(0, defChance))
+    for _ in range(carriersKilled):
+        if not attforce["Other Ships"]:
+            break
+        sunk = random.choice(attforce["Other Ships"])
+        destroyedShips.add(sunk)
+        logs.append(f"Defending Ships sink {sunk.type.lower()}")
+
+    return NavalBattleResponse(attChance != 0, destroyedShips, logs)
