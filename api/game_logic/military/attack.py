@@ -798,3 +798,47 @@ def navalBattle(gameData, attNation: Nation, attDivs: list[Unit], defDivs: list[
         logs.append(f"Defending Ships sink {sunk.type.lower()}")
 
     return NavalBattleResponse(attChance != 0, destroyedShips, logs)
+
+
+def determineCasualties(gameData, tiq: Territory, attDivs: list[Unit], defDivs: list[Unit], aStren: float, dStren: float) -> dict:
+    median = min(aStren, dStren) / 2
+    stdev = median / 3
+
+    amed = sum(unit.quantity for unit in attDivs if unit.type == "Medical Unit")
+    dmed = sum(unit.quantity for unit in defDivs if unit.type == "Medical Unit")
+
+    acas = {}
+    dcas = {}
+    asaved = 0
+    dsaved = 0
+
+    for unit in attDivs:
+        cas = random.normalvariate(mu=median, sigma=stdev) * unit.quantity / aStren if aStren > 0 else 0
+        if unit.type in ["Light Infantry", "Motorized Infantry", "Mechanized Infantry", "Medical Unit"]:
+            saved = amed * random.randint(5, 20)
+            cas -= saved
+            asaved += saved
+        cas = max(0, cas)
+        if unit.quantity - cas < getUnitData(gameData, unit.type)[1]["Minimum"]:
+            cas = unit.quantity
+        cas = round(cas)
+        unit.quantity -= cas
+        acas[unit] = cas
+
+    for unit in defDivs:
+        if dStren > 0:
+            cas = random.normalvariate(mu=median, sigma=stdev) * unit.quantity / dStren
+        else:
+            cas = random.randint(0, unit.quantity)
+        if unit.type in ["Light Infantry", "Motorized Infantry", "Mechanized Infantry", "Medical Unit"]:
+            saved = dmed * random.randint(5, 20)
+            cas -= saved
+            dsaved += saved
+        cas = max(0, cas)
+        if unit.quantity - cas < getUnitData(gameData, unit.type)[1]["Minimum"]:
+            cas = unit.quantity
+        cas = round(cas)
+        dcas.setdefault(unit.nation, {})[unit] = cas
+        unit.quantity -= cas
+
+    return {"acas": acas, "dcas": dcas, "asaved": asaved, "dsaved": dsaved}
