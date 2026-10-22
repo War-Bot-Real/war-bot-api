@@ -1,5 +1,5 @@
 from api.game_logic.shared import calcDistance, pxToKm, quadify
-from models import Territory, Unit
+from api.models import Territory, Unit
 
 def getUnitData(gameData, unittype):
   allunits = gameData.getDefaultGameData()["Units"]
