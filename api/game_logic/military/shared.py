@@ -141,3 +141,6 @@ def antiAirDef(gameData, unit: Unit) -> int | float:
 def getNavalPower(gameData) -> dict[str, int | float]:
     navalData = gameData.getDefaultGameData()["Units"]["Naval"]
     return {unitType: data["Power"] for unitType, data in navalData.items()}
+
+def devastationRatio():
+    return 0.1 #how much each division raises the War Devastation stat by

@@ -58,6 +58,9 @@ class GameData:
 
       return matches[0]
     
+    def updateTerritory(self, territoryName, changes):
+        return self.supabase.table("territories").update(changes).eq("name", territoryName).execute()
+    
     def getAllSeas(self) -> list[Sea]:
         res = self.supabase.table("seas").select("*").execute()
 
