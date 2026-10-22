@@ -212,6 +212,19 @@ class GameData:
         event = "notification"
 
       broadcast(topic, event, message)
+      
+      
+    # ----------- Battles -----------
+    def createBattle(self, battleResults: dict) -> int:
+        result = self.supabase.table("battles").insert({"battle_results": battleResults}).execute()
+        return result.data[0]["id"]
+
+    def getBattle(self, battleId: int) -> dict | None:
+        result = self.supabase.table("battles").select("*").eq("id", battleId).execute()
+        return result.data[0] if result.data else None
+
+    def getAllBattles(self) -> list[dict]:
+        return self.supabase.table("battles").select("*").order("id").execute().data
     
     # ---------- Game Data ----------
 

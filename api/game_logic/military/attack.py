@@ -798,21 +798,24 @@ def navalBattle(gameData, attNation: Nation, attDivs: list[Unit], defDivs: list[
         logs.append(f"Defending Ships sink {sunk.type.lower()}")
 
     return NavalBattleResponse(attChance != 0, destroyedShips, logs)
-
 class LandBattleResponse:
-  def __init__(self, attWin: bool, attCas: dict[Unit, int], attSaved: int, defCasByNation: dict[str, dict[Unit, int]], defSaved: int, undefended: bool, defFuelShortages: list[str]):
-    self.attWin = attWin
-    self.attCas = attCas
-    self.attSaved = attSaved
-    self.defCas = defCasByNation
-    self.defSaved = defSaved
-    self.undefended = undefended
-    self.defFuelShortages = defFuelShortages
+    def __init__(self, battleId: str, attWin: bool, attCas: dict[Unit, int], attSaved: int, defCasByNation: dict[str, dict[Unit, int]], defSaved: int, undefended: bool, defFuelShortages: list[str]):
+        self.battleId = battleId
+        self.attWin = attWin
+        self.attCas = attCas
+        self.attSaved = attSaved
+        self.defCas = defCasByNation
+        self.defSaved = defSaved
+        self.undefended = undefended
+        self.defFuelShortages = defFuelShortages
 
 def landBattle(gameData, tiq: Territory, niq: Nation, attDivs: list[Unit], defDivs: list[Unit]) -> LandBattleResponse:
     defDivsByNation = {}
     for unit in defDivs:
         defDivsByNation.setdefault(unit.nation, []).append(unit)
+
+    attInitial = {unit: unit.quantity for unit in attDivs}
+    defInitial = {unit: unit.quantity for unit in defDivs}
 
     attDivNum = sum(unit.quantity / getUnitData(gameData, unit.type)[1]["Each"] for unit in attDivs)
     defDivNum = sum(unit.quantity / getUnitData(gameData, unit.type)[1]["Each"] for unit in defDivs)
@@ -880,8 +883,36 @@ def landBattle(gameData, tiq: Territory, niq: Nation, attDivs: list[Unit], defDi
 
     gameData.updateTerritory(tiq.name, {"devastation": tiq.devastation})
 
-    return LandBattleResponse(attWin, casualties["acas"], casualties["asaved"], casualties["dcas"], casualties["dsaved"], dChance == 0, fuelShortages)
+    attackerUnits = [
+        {"type": unit.type, "initial_quantity": attInitial[unit], "casualties": casualties["acas"].get(unit, 0), "remaining_quantity": unit.quantity}
+        for unit in attDivs
+    ]
 
+    defenders = [
+        {
+            "nation": nationName,
+            "units": [
+                {"type": unit.type, "initial_quantity": defInitial[unit], "casualties": casualties["dcas"].get(nationName, {}).get(unit, 0), "remaining_quantity": unit.quantity}
+                for unit in units
+            ]
+        }
+        for nationName, units in defDivsByNation.items()
+    ]
+
+    battleResults = {
+        "territory": tiq.name,
+        "game_time": gameData.gameTime(),
+        "attacker": {"nation": niq.name, "won": attWin, "units": attackerUnits, "saved": casualties["asaved"]},
+        "defenders": defenders,
+        "defender_saved": casualties["dsaved"],
+        "undefended": dChance == 0,
+        "fuel_shortages": fuelShortages
+    }
+
+    numericBattleId = gameData.createBattle(battleResults)
+    battleId = convertIntToBattleId(numericBattleId)
+
+    return LandBattleResponse(battleId, attWin, casualties["acas"], casualties["asaved"], casualties["dcas"], casualties["dsaved"], dChance == 0, fuelShortages)
 
 def landBattleAftermath(gameData, niq: Nation, tiq: Territory, battle: LandBattleResponse):
     if battle.attWin:
@@ -893,7 +924,6 @@ def landBattleAftermath(gameData, niq: Nation, tiq: Territory, battle: LandBattl
             tiq.integrated = newIntegrated
 
         gameData.updateTerritory(tiq.name, {"nation": tiq.nation, "integrated": tiq.integrated})
-
 
 def determineCasualties(gameData, tiq: Territory, attDivs: list[Unit], defDivs: list[Unit], aStren: float, dStren: float) -> dict:
     median = min(aStren, dStren) / 2

@@ -1,4 +1,4 @@
-from api.game_logic.shared import calcDistance, pxToKm
+from api.game_logic.shared import calcDistance, pxToKm, quadify
 from models import Territory, Unit
 
 def getUnitData(gameData, unittype):
@@ -144,3 +144,18 @@ def getNavalPower(gameData) -> dict[str, int | float]:
 
 def devastationRatio():
     return 0.1 #how much each division raises the War Devastation stat by
+
+def convertIntToBattleId(num: int):
+  letters = ['q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
+
+  asStr = quadify(num)
+  id = ""
+  passed = True
+  for i in asStr:
+    if i == "0" and passed:
+      id += "0"
+      continue
+    passed = False
+    id += letters[int(i) - 1]
+  
+  return id
