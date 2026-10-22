@@ -4,7 +4,7 @@ from api.game_logic.military.management import getUnitData
 from api.game_logic.shared import formatTime, findquan, addToDict
 from api.game_logic.military.shared import getDomain, canTakeoff, inRange, findCoastOccupant, findFuelRequired, findOwner, getAllBorders, station, antiAirDef, getNavalPower, devastationRatio, convertIntToBattleId, findCooldown, cooldownMultiplier, getCapacity, getLoad, findWeight
 from api.game_logic.shared import formatList
-from api.game_logic.military.pathFinder import shortestPathFinder
+from api.game_logic.military.pathFinder import shortestPathFinder, calcDistance
 
 def strength(gameData, divs: list[Unit], type: str) -> float:
     total = 0
@@ -67,6 +67,48 @@ def calcCasualtyStabLoss(niq: Nation, cas: dict[str, int], won: bool) -> float:
     else:
         stab = -(casnum / 1000) ** 0.8 / 10 ** 0.8
     return stab
+
+def executeBattleCas(gameData, attDivs: list[Unit], defDivs: list[Unit], casualties: set[Unit]) -> dict[Unit, int]:
+    losses = mergeCasualties(gameData, casualties, attDivs + defDivs)
+
+    for unit, loss in losses.items():
+        unit.quantity -= loss
+        if unit.quantity <= 0:
+            gameData.deleteUnit(unit.name)
+            if unit in attDivs:
+                attDivs.remove(unit)
+            elif unit in defDivs:
+                defDivs.remove(unit)
+        else:
+            gameData.updateUnit(unit.name, {"quantity": unit.quantity})
+
+    return losses
+
+def mergeCasualties(gameData, casualties: set[Unit], troop_list: list[Unit] | None = None) -> dict[Unit, int]:
+    if troop_list is None:
+        troop_list = gameData.getUnits()
+
+    losses = {}
+    for casualty in casualties:
+        unit = next((unit for unit in troop_list if unit.name == casualty.name), None)
+        if unit is not None:
+            losses[unit] = losses.get(unit, 0) + 1
+
+    return losses
+
+def planeCooldown(gameData, mapName: str, unitType: str, startTerr: Territory | Sea | Unit, endTerr: Territory | Sea | Unit, roundTrip: bool) -> float:
+    if isinstance(startTerr, Unit):
+        startTerr = station(startTerr)
+    if isinstance(endTerr, Unit):
+        endTerr = station(endTerr)
+
+    dist = max(5, calcDistance(startTerr, endTerr))
+    if roundTrip:
+        dist *= 2
+
+    cooldown = getUnitData(gameData, unitType)[1]["Cooldown"]
+    pxToKm = gameData.getMapData(mapName)["pxToKm"]
+    return cooldown * pxToKm * dist / 100
 
 def attack(gameData, nation: Nation, target: Territory | Sea, units: list[Unit]):
     # ---------- Defender ----------
