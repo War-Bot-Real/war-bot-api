@@ -209,11 +209,7 @@ def getMapImage(map: str, shrink: bool):
 @router.get("/map/{map}/data")
 def getMapData(map: str):
     try:
-        res = supabase.storage.from_("maps").create_signed_url(f"{map}/data.json", expires_in=60)
-        signed_url = res["signedUrl"]
-        response = requests.get(signed_url)
-        response.raise_for_status()
-        return response.json()
+        return gameData.getMapData(map)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

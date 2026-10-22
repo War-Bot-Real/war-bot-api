@@ -2,8 +2,9 @@ import random
 from api.models import Territory, Sea, Nation, Unit
 from api.game_logic.military.management import getUnitData
 from api.game_logic.shared import formatTime, findquan, addToDict
-from api.game_logic.military.shared import getDomain, canTakeoff, inRange, findCoastOccupant, findFuelRequired, findOwner, getAllBorders, station, antiAirDef, getNavalPower, devastationRatio
+from api.game_logic.military.shared import getDomain, canTakeoff, inRange, findCoastOccupant, findFuelRequired, findOwner, getAllBorders, station, antiAirDef, getNavalPower, devastationRatio, convertIntToBattleId, findCooldown, cooldownMultiplier
 from api.game_logic.shared import formatList
+from api.game_logic.military.pathFinder import shortestPathFinder
 
 def strength(gameData, divs: list[Unit], type: str) -> float:
     total = 0
@@ -57,6 +58,15 @@ def divideUnit(unit: Unit) -> list[Unit]:
         "tiredUntil": unit.tiredUntil,
         "active": unit.active
     }) for _ in range(unit.quantity)]
+
+def calcCasualtyStabLoss(niq: Nation, cas: dict[str, int], won: bool) -> float:
+    casnum = sum(cas.values())
+    if won:
+        stab = -((casnum / 1000) ** 0.8 / 10 ** 0.8) / 2
+        # stab += ide[niq.ide].winStab
+    else:
+        stab = -(casnum / 1000) ** 0.8 / 10 ** 0.8
+    return stab
 
 def attack(gameData, nation: Nation, target: Territory | Sea, units: list[Unit]):
     # ---------- Defender ----------
@@ -248,8 +258,6 @@ def attack(gameData, nation: Nation, target: Territory | Sea, units: list[Unit])
             intelligent.add(unit.nation)
 
     # ---------- Battle log ----------
-    battleId = getNextBattleId()
-
     battleLog = {
         "Attacker": {"Name": nation.name, "Flag": nation.flag},
         "Defender": {"Name": defN.name, "Flag": defN.flag},
@@ -425,13 +433,10 @@ def attack(gameData, nation: Nation, target: Territory | Sea, units: list[Unit])
         gameData.updateUnit(unit.name, {"tiredUntil": tiredUntil})
 
     # ---------- Save battle ----------
-    battles = getAllBattles(gameData)
-    battles[battleId] = battleLog
-
-    saveBattles(gameData, battles)
+    battle = gameData.createBattle(battleLog)
 
     return {
-        "battleId": battleId,
+        "battleId": convertIntToBattleId(battle),
         "battle": battleLog,
         "retreat": retreatmsg,
         "navalRetreat": navRetreatMsg

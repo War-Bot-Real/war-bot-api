@@ -159,3 +159,36 @@ def convertIntToBattleId(num: int):
     id += letters[int(i) - 1]
   
   return id
+  
+cooldownConstants = {
+  "loading": 300
+}
+
+cooldownMultiplier = {
+  "Attacking": 1.25,
+  "Loading": 1.05,
+  "Bombard": 1.1,
+  "Integration": 500,
+  "Rail": 450 #how many seconds it takes to move something 100 pixels
+}
+
+def findCooldown(gameData, mapName: str, unitType: str, terrain: int | str, stability: int | float) -> float:
+    if stability > 1:
+        stabEffect = 4.0 / stability ** (1 / 3)
+    else:
+        stabEffect = -1 / 40 * stability + 161 / 40
+
+    domain, data = getUnitData(gameData, unitType)
+    if domain == "Naval":
+        return data["Cooldown"] * stabEffect
+
+    if terrain in ["Transporter", "Aircraft Carrier"]:
+        return cooldownConstants["loading"]
+
+    if isinstance(terrain, str):
+        terrains = gameData.getMapData(mapName)["Terrains"]
+        terrain = next((i for i, item in enumerate(terrains) if item["Name"] == terrain), terrain)
+
+    exponent = data["Speed"]["Exponent"]
+    divisor = data["Speed"]["Divisor"]
+    return 1000 * (terrain + 3) ** exponent / divisor * stabEffect
