@@ -2,7 +2,7 @@ import random
 from api.models import Territory, Sea, Nation, Unit
 from api.game_logic.military.management import getUnitData
 from api.game_logic.shared import formatTime, findquan, addToDict
-from api.game_logic.military.shared import getDomain, canTakeoff, inRange, findCoastOccupant, findFuelRequired, findOwner, getAllBorders, station, antiAirDef, getNavalPower, devastationRatio, convertIntToBattleId, findCooldown, cooldownMultiplier
+from api.game_logic.military.shared import getDomain, canTakeoff, inRange, findCoastOccupant, findFuelRequired, findOwner, getAllBorders, station, antiAirDef, getNavalPower, devastationRatio, convertIntToBattleId, findCooldown, cooldownMultiplier, getCapacity, getLoad, findWeight
 from api.game_logic.shared import formatList
 from api.game_logic.military.pathFinder import shortestPathFinder
 
@@ -442,6 +442,22 @@ def attack(gameData, nation: Nation, target: Territory | Sea, units: list[Unit])
         "navalRetreat": navRetreatMsg
     }
 
+def retreatForces(gameData, tiq: Territory, divs: list[Unit]) -> str:
+    air = [unit for unit in divs if getDomain(gameData, unit.type) == "Air"]
+    ground = [unit for unit in divs if getDomain(gameData, unit.type) == "Ground"]
+
+    msg = retreatGroundForces(gameData, tiq, ground)
+    retreatedAir = retreatAircraft(gameData, air)
+
+    if retreatedAir:
+        msg += "\nYour aircraft retreated as such:\n" + formatRetreatMessage(retreatedAir)
+
+    encircled = [unit for unit in air if unit.location == tiq.name]
+    if encircled:
+        msg += "\nThe following aircraft were not in range of any airports, and thus were destroyed:" + formatEncirclementMessage(encircled) + "\n"
+
+    return msg
+
 class FlightResponse:
     def __init__(self, flownOver: set[Sea | Territory], lossesByTile: dict[Territory | Sea, dict[Unit, int]], allNationsInvolved: set[Nation], enemyNationsInvolved: set[Nation]):
         self.flownOver = flownOver
@@ -681,6 +697,34 @@ def groundBasedAirDefense(gameData, attDivs: list[Unit], defDivs: list[Unit], in
 
     return shotdown
 
+def retreatAircraft(gameData, aircraft: list[Unit]) -> dict:
+    byTile = {}
+    for unit in aircraft:
+        nation = gameData.getNation(unit.nation)
+        canEnter = nation.canEnter()
+        possible = set()
+
+        for territory in gameData.getAllTerr():
+            if ("Airport" in territory.buildings or "Airstrip" in territory.buildings) and territory.nation in canEnter:
+                if inRange(unit, territory, False):
+                    possible.add(territory)
+
+        for carrier in gameData.getUnits():
+            if carrier.type == "Aircraft Carrier":
+                if carrier.nation == nation.name or (carrier.nation in canEnter and gameData.getNation(carrier.nation).getSettings()["Allow trusted carrier retreats"]):
+                    if carrier.getRemainingCapacity() - getUnitData(gameData, unit.type)["Weight"] > 0:
+                        if inRange(unit, station(carrier), False):
+                            possible.add(carrier)
+
+        if not possible:
+            continue
+
+        newLoc = random.choice(list(possible))
+        unit.location = newLoc.name if isinstance(newLoc, Territory) else newLoc.name
+        byTile.setdefault(newLoc.name, []).append(unit.name)
+
+    return byTile
+
 class NavalBattleResponse:
     def __init__(self, attWin: bool, destroyedShips: set[Unit], navalLogs: list[str]):
         self.attWin = attWin
@@ -803,6 +847,40 @@ def navalBattle(gameData, attNation: Nation, attDivs: list[Unit], defDivs: list[
         logs.append(f"Defending Ships sink {sunk.type.lower()}")
 
     return NavalBattleResponse(attChance != 0, destroyedShips, logs)
+
+def retreatShips(gameData, ships: list[Unit]) -> dict[str, list[str]]:
+    byTile = {}
+    for unit in ships:
+        location = station(unit)
+        nation = gameData.getNation(unit.nation)
+        canEnter = nation.canEnter()
+        possible = []
+
+        for border in getAllBorders(gameData, location):
+            try:
+                territory = gameData.getTerritory(border)
+                if territory.coast:
+                    coastOccupant = findCoastOccupant(gameData, territory)
+                    if coastOccupant == "None" or coastOccupant.name in canEnter:
+                        possible.append(territory)
+            except ValueError:
+                try:
+                    sea = gameData.getSea(border)
+                    seaOwner = findOwner(gameData, sea)
+                    if seaOwner == "None" or seaOwner in canEnter:
+                        possible.append(sea)
+                except ValueError:
+                    continue
+
+        if not possible:
+            continue
+
+        newLoc = random.choice(possible)
+        unit.location = newLoc.name
+        byTile.setdefault(newLoc.name, []).append(unit.name)
+
+    return byTile
+  
 class LandBattleResponse:
     def __init__(self, battleId: str, attWin: bool, attCas: dict[Unit, int], attSaved: int, defCasByNation: dict[str, dict[Unit, int]], defSaved: int, undefended: bool, defFuelShortages: list[str]):
         self.battleId = battleId
@@ -972,3 +1050,90 @@ def determineCasualties(gameData, tiq: Territory, attDivs: list[Unit], defDivs: 
         unit.quantity -= cas
 
     return {"acas": acas, "dcas": dcas, "asaved": asaved, "dsaved": dsaved}
+
+def retreatGroundForces(gameData, tiq: Territory, divs: list[Unit]) -> str:
+    retreat = ""
+    if not divs:
+        return ""
+
+    retreats = {}
+    didntMakeIt = {}
+    groupsRetreated = {}
+
+    for unit in divs.copy():
+        nation = gameData.getNation(unit.nation)
+        unit.active = True
+        currentTime = gameData.gameTime()
+        retreatCooldown = (findCooldown(gameData, unit.type, 1, nation.stability) + findCooldown(gameData, unit.type, 5, nation.stability)) / 20
+
+        if currentTime + retreatCooldown < unit.tiredUntil:
+            unit.tiredUntil = currentTime + retreatCooldown
+
+        allowed = nation.canEnter()
+        bordering = [gameData.getTerritory(name).name for name in tiq.bordering if gameData.getTerritory(name).nation in allowed]
+
+        if bordering:
+            if getattr(unit, "group", "None") != "None":
+                if unit.group in groupsRetreated:
+                    dest = groupsRetreated[unit.group]
+                else:
+                    dest = random.choice(bordering)
+                    groupsRetreated[unit.group] = dest
+            else:
+                dest = random.choice(bordering)
+
+            retreats.setdefault(dest, []).append(unit.name)
+            unit.location = dest
+        else:
+            carriers = [c for c in gameData.getUnits() if c.location == tiq.name and c.type in ["Transporter", "Aircraft Carrier"] and (c.nation == nation.name or (c.nation in allowed and gameData.getNation(c.nation).getSettings()["Allow trusted carrier retreats"]))]
+            retreated = False
+
+            for carrier in carriers:
+                if findWeight(getLoad(gameData, carrier)) + findWeight([unit]) < getCapacity(gameData, carrier):
+                    unit.location = carrier.name
+                    retreats.setdefault(f"{carrier.type} `{carrier.name}`", []).append(unit.name)
+                    retreated = True
+                    break
+
+            if not retreated:
+                for carrier in carriers:
+                    remainingWeight = getCapacity(gameData, carrier) - findWeight(getLoad(gameData, carrier))
+                    unitData = getUnitData(gameData, unit.type)[1]
+                    unitWeight = unitData.get("Weight", 0)
+                    quantity = int(remainingWeight / unitWeight * unitData["Each"]) if unitWeight > 0 else 0
+
+                    if quantity >= unitData["Minimum"]:
+                        didntMakeIt[unit] = unit.quantity - quantity
+                        unit.quantity = quantity
+                        unit.location = carrier.name
+                        retreats.setdefault(f"{carrier.type} `{carrier.name}`", []).append(unit.name)
+                        retreated = True
+                        break
+
+            if not retreated:
+                didntMakeIt[unit] = unit.quantity
+                gameData.deleteUnit(unit.name)
+                if unit in divs:
+                    divs.remove(unit)
+
+    for destination, units in retreats.items():
+        retreat += f"\nTo {destination}: Divisions `{ '`, `'.join(units) }`"
+
+    if didntMakeIt:
+        retreat += "\nDue to limited retreat options, the following troops did not make it:"
+        for unit, quantity in didntMakeIt.items():
+            retreat += f"\n{quantity} from Division `{unit.name}`"
+            if quantity == unit.quantity:
+                retreat += ". Division completely destroyed."
+
+    # try:
+    #     ungrouped = fixGroups(divs)
+    #     if ungrouped:
+    #         retreat += f"\nDue to the chaos of the retreat, the following troops were ungrouped: `{ '`, `'.join(ungrouped) }`"
+    # except Exception:
+    #     pass
+
+    if retreat:
+        retreat = "\n\n__Retreats Made__" + retreat
+
+    return retreat

@@ -192,3 +192,9 @@ def findCooldown(gameData, mapName: str, unitType: str, terrain: int | str, stab
     exponent = data["Speed"]["Exponent"]
     divisor = data["Speed"]["Divisor"]
     return 1000 * (terrain + 3) ** exponent / divisor * stabEffect
+
+def getCapacity(gameData, unit: Unit) -> float:
+    return getUnitData(gameData, unit.type)[1].get("Capacity", 0)
+
+def findWeight(gameData, unit: Unit):
+  return getUnitData(gameData, unit.type)[1]["Weight"]
