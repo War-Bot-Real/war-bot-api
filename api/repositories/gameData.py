@@ -273,6 +273,9 @@ class GameData:
       response.raise_for_status()
       return response.json()
 
+    def getMapName(self):
+        return "Expanded Europe" #TODO: Replace with backend fetch
+
     # ---------- Game Time ----------
 
     def gameSeconds(self, date):

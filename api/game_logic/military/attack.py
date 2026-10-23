@@ -5,7 +5,8 @@ from api.game_logic.shared import formatTime, findquan, addToDict
 from api.game_logic.military.shared import getDomain, canTakeoff, inRange, findCoastOccupant, findFuelRequired, findOwner, getAllBorders, station, antiAirDef, getNavalPower, devastationRatio, convertIntToBattleId, findCooldown, cooldownMultiplier, getCapacity, getLoad, findWeight
 from api.game_logic.shared import formatList, formatNum
 from api.game_logic.military.pathFinder import shortestPathFinder, calcDistance
-from api.game_logic.messages.military import formatRetreatMessage, formatIndividualCas, annex, annexAtSea, annexAward, annexFailed, annexNews, annexSuccess
+from api.game_logic.messages.military import formatRetreatMessage, formatIndividualCas, annexAtSea, annexAward, annexFailed, annexNews, annexSuccess
+from api.game_logic.annexation import annex
 
 def strength(gameData, divs: list[Unit], type: str) -> float:
     total = 0
@@ -97,7 +98,8 @@ def mergeCasualties(gameData, casualties: set[Unit], troop_list: list[Unit] | No
 
     return losses
 
-def planeCooldown(gameData, mapName: str, unitType: str, startTerr: Territory | Sea | Unit, endTerr: Territory | Sea | Unit, roundTrip: bool) -> float:
+def planeCooldown(gameData, unitType: str, startTerr: Territory | Sea | Unit, endTerr: Territory | Sea | Unit, roundTrip: bool) -> float:
+    mapName = gameData.getMapName()
     if isinstance(startTerr, Unit):
         startTerr = station(startTerr)
     if isinstance(endTerr, Unit):
@@ -126,7 +128,7 @@ def attack(gameData, nation: Nation, target: Territory | Sea, units: list[Unit])
 
         if domain != "Air":
             defDivs.append(unit)
-        elif canTakeoff(gameData, unit):
+        elif canTakeoff(unit):
             defDivs.append(unit)
 
     # ---------- Attacker validation ----------
@@ -153,7 +155,7 @@ def attack(gameData, nation: Nation, target: Territory | Sea, units: list[Unit])
             notInRange.append(unit.name)
             continue
 
-        if domain == "Air" and not canTakeoff(gameData, unit):
+        if domain == "Air" and not canTakeoff(unit):
             noTakeoff.append(unit.name)
             continue
 
@@ -469,7 +471,7 @@ def attack(gameData, nation: Nation, target: Territory | Sea, units: list[Unit])
             location = station(gameData, unit)
             if isinstance(location, Unit):
                 location = station(gameData, location)
-            cooldown = planeCooldown(gameData, "Expanded Europe", unit.type, location, target, True)
+            cooldown = planeCooldown(gameData, unit.type, location, target, True)
 
         tiredUntil = currentTime + cooldown
         unit.tiredUntil = tiredUntil
@@ -755,7 +757,7 @@ def retreatAircraft(gameData, aircraft: list[Unit]) -> dict:
         for carrier in gameData.getUnits():
             if carrier.type == "Aircraft Carrier":
                 if carrier.nation == nation.name or (carrier.nation in canEnter and gameData.getNation(carrier.nation).getSettings()["Allow trusted carrier retreats"]):
-                    if carrier.getRemainingCapacity() - getUnitData(gameData, unit.type)["Weight"] > 0:
+                    if carrier.getRemainingCapacity() - getUnitData(gameData, unit.type)[1]["Weight"] > 0:
                         if inRange(unit, station(carrier), False):
                             possible.add(carrier)
 
@@ -835,7 +837,7 @@ def navalBattle(gameData, attNation: Nation, attDivs: list[Unit], defDivs: list[
     logs.append(f"Attacking submarines sink {formatList([f'{v} {k}{'s' if v != 1 else ''}' for k, v in attLost.items()])}")
     logs.append(f"Defending submarines sink {formatList([f'{v} {k}{'s' if v != 1 else ''}' for k, v in defLost.items()])}")
 
-    navalPower = getNavalPower()
+    navalPower = getNavalPower(gameData)
 
     attChance = len(attforce["Battleship"]) * navalPower["Battleship"] + len(attforce["Destroyer"]) * navalPower["Destroyer"]
     defChance = len(defforce["Battleship"]) * navalPower["Battleship"] + len(defforce["Destroyer"]) * navalPower["Destroyer"]
@@ -1044,7 +1046,7 @@ def landBattleAftermath(gameData, niq: Nation, tiq: Territory, battle: LandBattl
     if battle.attWin:
         tiq.nation = niq.name
         currentTime = gameData.gameTime()
-        integrationMultiplier = cooldownMultiplier()["Integration"]
+        integrationMultiplier = cooldownMultiplier["Integration"]
         newIntegrated = currentTime + (1600 / niq.stability if niq.stability > 0 else 1600) * integrationMultiplier
         if tiq.integrated < newIntegrated:
             tiq.integrated = newIntegrated
@@ -1132,7 +1134,7 @@ def retreatGroundForces(gameData, tiq: Territory, divs: list[Unit]) -> str:
             retreated = False
 
             for carrier in carriers:
-                if findWeight(getLoad(gameData, carrier)) + findWeight([unit]) < getCapacity(gameData, carrier):
+                if findWeight(gameData, getLoad(gameData, carrier)) + findWeight(gameData, [unit]) < getCapacity(gameData, carrier):
                     unit.location = carrier.name
                     retreats.setdefault(f"{carrier.type} `{carrier.name}`", []).append(unit.name)
                     retreated = True
@@ -1140,7 +1142,7 @@ def retreatGroundForces(gameData, tiq: Territory, divs: list[Unit]) -> str:
 
             if not retreated:
                 for carrier in carriers:
-                    remainingWeight = getCapacity(gameData, carrier) - findWeight(getLoad(gameData, carrier))
+                    remainingWeight = getCapacity(gameData, carrier) - findWeight(gameData, getLoad(gameData, carrier))
                     unitData = getUnitData(gameData, unit.type)[1]
                     unitWeight = unitData.get("Weight", 0)
                     quantity = int(remainingWeight / unitWeight * unitData["Each"]) if unitWeight > 0 else 0
@@ -1187,7 +1189,7 @@ def formatEncirclementMessage(unitsEncircled: list[Unit]):
     d[i] = i.quan
   return formatIndividualCas(d, False)
 
-async def generateAnnexMessage(gameData, niq: Nation, defN: Nation):
+def generateAnnexMessage(gameData, niq: Nation, defN: Nation):
     if len(defN.getTerr()) > 0:
         return ""
 

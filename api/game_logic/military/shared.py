@@ -172,7 +172,8 @@ cooldownMultiplier = {
   "Rail": 450 #how many seconds it takes to move something 100 pixels
 }
 
-def findCooldown(gameData, mapName: str, unitType: str, terrain: int | str, stability: int | float) -> float:
+def findCooldown(gameData, unitType: str, terrain: int | str, stability: int | float) -> float:
+    mapName = gameData.getMapName()
     if stability > 1:
         stabEffect = 4.0 / stability ** (1 / 3)
     else:
@@ -196,5 +197,8 @@ def findCooldown(gameData, mapName: str, unitType: str, terrain: int | str, stab
 def getCapacity(gameData, unit: Unit) -> float:
     return getUnitData(gameData, unit.type)[1].get("Capacity", 0)
 
-def findWeight(gameData, unit: Unit):
-  return getUnitData(gameData, unit.type)[1]["Weight"]
+def findWeight(gameData, units: list[Unit]):
+  weight = 0
+  for unit in units:
+    unitData = getUnitData(gameData, unit.type)[1]
+    weight += unit.quantity * unitData["Weight"] / unitData["Each"]

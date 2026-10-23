@@ -1,8 +1,8 @@
 
 import heapq
 from itertools import count
-from models import Territory, Sea
-from game_logic.military.shared import getAllBorders, calcDistance
+from api.models import Territory, Sea
+from api.game_logic.military.shared import getAllBorders, calcDistance
 
 def shortestPathFinder(gameData, start: Territory | Sea, end: Territory | Sea, inOneNation: bool = True, railroadsOnly: bool = False, includesTrusted: bool = True, includeSeas: bool = False) -> list[Territory | Sea] | None:
     if isinstance(start, str):
