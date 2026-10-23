@@ -1,19 +1,5 @@
 from api.game_logic.shared import quadify
-
-def getUnitData(gameData, unittype):
-  allunits = gameData.getDefaultGameData()["Units"]
-  for domain in allunits:
-    for unit in allunits[domain]:
-      if unit.lower() == unittype.lower() or allunits[domain][unit]["Short Form"] == unittype.upper(): 
-        return unit, allunits[domain][unit]
-  return None, None
-
-def getDomain(gameData, unittype):
-  allunits = gameData.getDefaultGameData()["Units"]
-  for domain in allunits:
-    if unittype in allunits[domain]:
-      return domain
-  return None
+from api.game_logic.military.shared import getUnitData, getDomain
 
 def deployUnit(gameData, nation, territory, unit, quantity):
     if not isinstance(quantity, int):

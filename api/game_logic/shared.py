@@ -10,6 +10,31 @@ def formatList(l: list, conjunction: str = "and"):
     last = l.pop()
     return "{}, {} {}".format(", ".join(l), conjunction, last)
 
+def formatTime(seconds: int | float):
+  hours = int(seconds/3600)
+  mins = int(seconds%3600/60)
+  sec = int(seconds%60)
+  print(seconds)
+  print(hours, mins, sec)
+  msg = ""
+  if hours > 0:
+    msg += "{} hour".format(hours)
+    if hours > 1:
+      msg += "s"
+    if mins > 0 or sec > 0:
+      msg += ", "
+  if mins > 0:
+    msg += "{} minute".format(mins)
+    if mins > 1:
+      msg += "s"
+    if sec > 0:
+      msg += ", "
+  if sec > 0:
+    msg += "{} second".format(sec)
+    if sec > 1:
+      msg += "s"
+  return "0 seconds" if len(msg) == 0 else msg
+
 def findItem(item, items, key) -> list:
   item = " ".join(item.strip().split("_")).lower()
   matches = []
@@ -37,7 +62,7 @@ def quadify(arg):
   return (z)
   
 def pxToKm(gameData, distance):
-    return distance * gameData.getMapData()["pxToKm"]
+    return distance * gameData.getMapData(gameData.getMapName())["pxToKm"]
 
 def calcDistance(tile1, tile2):
     loc1 = tile1.location
@@ -52,3 +77,26 @@ def calcDistance(tile1, tile2):
     x1, y1 = float(loc1[0]), float(loc1[1])
     x2, y2 = float(loc2[0]), float(loc2[1])
     return ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+
+def findquan(units):
+  quan = 0
+  for i in units:
+    quan += i.quantity
+  return quan
+
+def addToDict(dict1: dict[any, int], toAdd: dict[any, int]):
+  for i in toAdd:
+    if i in dict1:
+      dict1[i] += toAdd[i]
+    else:
+      dict1[i] = toAdd[i]
+
+def formatNum(number: int | float):
+  return "{:,}".format(number)
+
+def getSettings(gameData, nation) -> dict:
+    sett = nation.settings
+    for i, data in gameData.getDefaultGameData()["Settings"]["Player"].items():
+        if i not in sett:
+            sett[i] = data["Default"]
+    return sett

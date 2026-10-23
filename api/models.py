@@ -42,6 +42,10 @@ class Nation:
     self.centralized = data["centralized"]
     self.last = data["last"]
     self.theaters = data["theaters"]
+    self.settings = data.get("settings", {})
+
+  def canEnter(self) -> set[str]:
+    return {self.name, *self.diplomacy["Trusted"]}
 
 class Unit:
   def __init__(self, data):

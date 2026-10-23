@@ -58,6 +58,9 @@ class GameData:
 
       return matches[0]
     
+    def updateTerritory(self, territoryName, changes):
+        return self.supabase.table("territories").update(changes).eq("name", territoryName).execute()
+    
     def getAllSeas(self) -> list[Sea]:
         res = self.supabase.table("seas").select("*").execute()
 
@@ -209,6 +212,23 @@ class GameData:
         event = "notification"
 
       broadcast(topic, event, message)
+      
+      
+    # ----------- Battles -----------
+    def createBattle(self, battleResults: dict) -> int:
+        result = self.supabase.table("battles").insert({"battle_results": battleResults}).execute()
+        return result.data[0]["id"]
+
+    def getBattle(self, battleId: int) -> dict | None:
+        result = self.supabase.table("battles").select("*").eq("id", battleId).execute()
+        return result.data[0] if result.data else None
+
+    def getAllBattles(self) -> list[dict]:
+        return self.supabase.table("battles").select("*").order("id").execute().data
+    
+    def getLastBattleId(self):
+        result = self.supabase.table("battles").select("id").order("id", desc=True).limit(1).execute()
+        return result.data[0]["id"] if result.data else 0
     
     # ---------- Game Data ----------
 
@@ -246,6 +266,15 @@ class GameData:
         for i in masterdata["Units"][domain]:
           shortforms[masterdata["Units"][domain][i]["Short Form"]] = i
       return shortforms
+    
+    def getMapData(self, mapName: str) -> dict:
+      res = self.supabase.storage.from_("maps").create_signed_url(f"{mapName}/data.json", expires_in=60)
+      response = requests.get(res["signedUrl"])
+      response.raise_for_status()
+      return response.json()
+
+    def getMapName(self):
+        return "Expanded Europe" #TODO: Replace with backend fetch
 
     # ---------- Game Time ----------
 
