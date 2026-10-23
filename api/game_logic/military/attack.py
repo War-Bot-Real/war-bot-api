@@ -3,8 +3,9 @@ from api.models import Territory, Sea, Nation, Unit
 from api.game_logic.military.management import getUnitData
 from api.game_logic.shared import formatTime, findquan, addToDict
 from api.game_logic.military.shared import getDomain, canTakeoff, inRange, findCoastOccupant, findFuelRequired, findOwner, getAllBorders, station, antiAirDef, getNavalPower, devastationRatio, convertIntToBattleId, findCooldown, cooldownMultiplier, getCapacity, getLoad, findWeight
-from api.game_logic.shared import formatList
+from api.game_logic.shared import formatList, formatNum
 from api.game_logic.military.pathFinder import shortestPathFinder, calcDistance
+from api.game_logic.messages.military import formatRetreatMessage, formatIndividualCas, annex, annexAtSea, annexAward, annexFailed, annexNews, annexSuccess
 
 def strength(gameData, divs: list[Unit], type: str) -> float:
     total = 0
@@ -468,7 +469,7 @@ def attack(gameData, nation: Nation, target: Territory | Sea, units: list[Unit])
             location = station(gameData, unit)
             if isinstance(location, Unit):
                 location = station(gameData, location)
-            cooldown = planeCooldown(gameData, unit.type, location, target, True)
+            cooldown = planeCooldown(gameData, "Expanded Europe", unit.type, location, target, True)
 
         tiredUntil = currentTime + cooldown
         unit.tiredUntil = tiredUntil
@@ -1179,3 +1180,34 @@ def retreatGroundForces(gameData, tiq: Territory, divs: list[Unit]) -> str:
         retreat = "\n\n__Retreats Made__" + retreat
 
     return retreat
+  
+def formatEncirclementMessage(unitsEncircled: list[Unit]):
+  d = {}
+  for i in unitsEncircled:
+    d[i] = i.quan
+  return formatIndividualCas(d, False)
+
+async def generateAnnexMessage(gameData, niq: Nation, defN: Nation):
+    if len(defN.getTerr()) > 0:
+        return ""
+
+    if not defN.dead():
+        return annexAtSea(defN.name)
+
+    tryAnnex = annex(niq, defN)
+    if not tryAnnex["Success"]:
+        return annexFailed(defN.name)
+
+    seized = tryAnnex["Seized"]
+    moneyData = seized["Money"]
+    money = moneyData[niq.name]
+    moneymsg = f"You have seized ${formatNum(money)}!" if money > 0 else ""
+    msg = annexSuccess(defN.name, moneymsg, seized["Inventory"], seized["Ships"], tryAnnex["Stability"][niq.name])
+
+    for n, amount in moneyData.items():
+        nat = gameData.getNation(n)
+        if nat != "None" and amount != 0 and nat != niq:
+            gameData.createMessage("system", nat.name, "notification", annexAward(defN.name, formatNum(amount), tryAnnex["Stability"][n]))
+
+    gameData.createMessage("system", "news", "news", annexNews(defN.flag, defN.name, niq.flag, niq.demonym))
+    return msg

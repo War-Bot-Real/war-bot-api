@@ -90,3 +90,6 @@ def addToDict(dict1: dict[any, int], toAdd: dict[any, int]):
       dict1[i] += toAdd[i]
     else:
       dict1[i] = toAdd[i]
+
+def formatNum(number: int | float):
+  return "{:,}".format(number)
