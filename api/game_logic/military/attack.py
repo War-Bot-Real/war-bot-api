@@ -471,7 +471,7 @@ def attack(gameData, nation: Nation, target: Territory | Sea, units: list[Unit])
             location = station(gameData, unit)
             if isinstance(location, Unit):
                 location = station(gameData, location)
-            cooldown = planeCooldown(gameData, unit.type, location, target, True)
+            cooldown = planeCooldown(gameData, unit.type, location, target, True) * cooldownMultiplier["Attacking"]
 
         tiredUntil = currentTime + cooldown
         unit.tiredUntil = tiredUntil
