@@ -88,8 +88,8 @@ def inRange(gameData, plane, target, roundTrip=True):
     return pxToKm(gameData, distance) < unitRange
 
 
-def canTakeoff(plane: Unit):
-  s = station(plane)
+def canTakeoff(gameData, plane: Unit):
+  s = station(gameData, plane)
   if isinstance(s, Unit):
     if s.type == "Aircraft Carrier":
       return True

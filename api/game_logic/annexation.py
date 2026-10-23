@@ -1,3 +1,3 @@
-def annex():
+def annex(niq, defN):
     # TODO
     return {"Success": False}

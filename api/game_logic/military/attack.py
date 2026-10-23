@@ -101,9 +101,9 @@ def mergeCasualties(gameData, casualties: set[Unit], troop_list: list[Unit] | No
 def planeCooldown(gameData, unitType: str, startTerr: Territory | Sea | Unit, endTerr: Territory | Sea | Unit, roundTrip: bool) -> float:
     mapName = gameData.getMapName()
     if isinstance(startTerr, Unit):
-        startTerr = station(startTerr)
+        startTerr = station(gameData, startTerr)
     if isinstance(endTerr, Unit):
-        endTerr = station(endTerr)
+        endTerr = station(gameData, endTerr)
 
     dist = max(5, calcDistance(startTerr, endTerr))
     if roundTrip:
@@ -128,7 +128,7 @@ def attack(gameData, nation: Nation, target: Territory | Sea, units: list[Unit])
 
         if domain != "Air":
             defDivs.append(unit)
-        elif canTakeoff(unit):
+        elif canTakeoff(gameData, unit):
             defDivs.append(unit)
 
     # ---------- Attacker validation ----------
@@ -155,7 +155,7 @@ def attack(gameData, nation: Nation, target: Territory | Sea, units: list[Unit])
             notInRange.append(unit.name)
             continue
 
-        if domain == "Air" and not canTakeoff(unit):
+        if domain == "Air" and not canTakeoff(gameData, unit):
             noTakeoff.append(unit.name)
             continue
 
@@ -751,14 +751,15 @@ def retreatAircraft(gameData, aircraft: list[Unit]) -> dict:
 
         for territory in gameData.getAllTerr():
             if ("Airport" in territory.buildings or "Airstrip" in territory.buildings) and territory.nation in canEnter:
-                if inRange(unit, territory, False):
+                if inRange(gameData, unit, territory, False):
                     possible.add(territory)
 
         for carrier in gameData.getUnits():
             if carrier.type == "Aircraft Carrier":
                 if carrier.nation == nation.name or (carrier.nation in canEnter and gameData.getNation(carrier.nation).getSettings()["Allow trusted carrier retreats"]):
-                    if carrier.getRemainingCapacity() - getUnitData(gameData, unit.type)[1]["Weight"] > 0:
-                        if inRange(unit, station(carrier), False):
+                    remainingCapacity = getCapacity(gameData, carrier) - findWeight(gameData, getLoad(gameData, carrier))
+                    if remainingCapacity >= findWeight(gameData, [unit]):
+                        if inRange(gameData, unit, station(gameData, carrier), False):
                             possible.add(carrier)
 
         if not possible:
@@ -834,8 +835,10 @@ def navalBattle(gameData, attNation: Nation, attDivs: list[Unit], defDivs: list[
             else:
                 addToDict(defLost, {unit.type: 1})
 
-    logs.append(f"Attacking submarines sink {formatList([f'{v} {k}{'s' if v != 1 else ''}' for k, v in attLost.items()])}")
-    logs.append(f"Defending submarines sink {formatList([f'{v} {k}{'s' if v != 1 else ''}' for k, v in defLost.items()])}")
+    attLostMsg = formatList([f"{v} {k}{'s' if v != 1 else ''}" for k, v in attLost.items()])
+    defLostMsg = formatList([f"{v} {k}{'s' if v != 1 else ''}" for k, v in defLost.items()])
+    logs.append(f"Attacking submarines sink {attLostMsg}")
+    logs.append(f"Defending submarines sink {defLostMsg}")
 
     navalPower = getNavalPower(gameData)
 
@@ -896,7 +899,7 @@ def navalBattle(gameData, attNation: Nation, attDivs: list[Unit], defDivs: list[
 def retreatShips(gameData, ships: list[Unit]) -> dict[str, list[str]]:
     byTile = {}
     for unit in ships:
-        location = station(unit)
+        location = station(gameData, unit)
         nation = gameData.getNation(unit.nation)
         canEnter = nation.canEnter()
         possible = []
@@ -979,7 +982,7 @@ def landBattle(gameData, tiq: Territory, niq: Nation, attDivs: list[Unit], defDi
 
     tiq.devastation += (attDivNum + defDivNum) * devastationRatio()
     dStren = sum(defStrenByNation.values())
-    if tiq.fort():
+    if "Fortress" in tiq.buildings:
         dStren *= 2
 
     aStren = strength(gameData, attDivs, "att")
@@ -1186,11 +1189,11 @@ def retreatGroundForces(gameData, tiq: Territory, divs: list[Unit]) -> str:
 def formatEncirclementMessage(unitsEncircled: list[Unit]):
   d = {}
   for i in unitsEncircled:
-    d[i] = i.quan
+    d[i] = i.quantity
   return formatIndividualCas(d, False)
 
 def generateAnnexMessage(gameData, niq: Nation, defN: Nation):
-    if len(defN.getTerr()) > 0:
+    if gameData.getNationTerr(defN.name):
         return ""
 
     if not defN.dead():
