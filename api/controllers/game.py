@@ -16,6 +16,7 @@ from api.game_logic.diplomacy import allyNation, declareWar
 from api.game_logic.admin import registerNation
 from api.game_logic.top import top
 from api.game_logic.give import giveMoney
+from api.game_logic.military.attack import attack as executeAttack
 
 router = APIRouter()
 
@@ -599,3 +600,48 @@ def disband(unit: str, user=Depends(get_current_user)):
       "success": True,
       "result": result
   }
+
+class AttackRequest(BaseModel):
+    units: list[str]
+    target: str
+
+@router.post("/attack")
+def attack(request: AttackRequest, user=Depends(get_current_user)):
+    nation = checkNation(user)
+
+    invalidUnits = []
+    validUnits = []
+    for i in request.units:
+        unit = gameData.getUnit(i)
+        if not unit:
+            invalidUnits.append(i)
+        else:
+            validUnits.append(unit)
+    if invalidUnits:
+        raise HTTPException(status_code=404, detail=f"Invalid units: {', '.join(invalidUnits)}")
+
+    try:
+        potentialTerritory = gameData.getTerritory(request.target)
+    except ValueError:
+        potentialTerritory = None
+
+    try:
+        potentialSea = gameData.getSea(request.target)
+    except ValueError:
+        potentialSea = None
+
+    if not potentialTerritory and not potentialSea:
+        raise HTTPException(status_code=404, detail=f"{request.target} is not a valid territory or sea")
+
+    if potentialTerritory and potentialSea:
+        raise HTTPException(status_code=400, detail=f"Both a sea {potentialSea.name} and a territory {potentialTerritory.name} found. Please specify which one you want to attack.")
+
+    try:
+        result = executeAttack(gameData, nation, potentialTerritory or potentialSea, validUnits)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {
+        "success": True,
+        "result": result
+    }
