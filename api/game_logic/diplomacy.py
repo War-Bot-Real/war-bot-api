@@ -96,7 +96,7 @@ def declareWar(gameData, nation, target):
         "treaties": [treatyName]
     }
 
-    # gameData.createInteraction(nation.name, target.name, "war", warDetails)
+    gameData.createInteraction(nation.name, target.name, "war", warDetails)
 
     nationDiplomacy = nation.diplomacy.copy()
 
