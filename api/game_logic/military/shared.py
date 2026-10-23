@@ -101,13 +101,13 @@ def canTakeoff(gameData, plane: Unit):
 
 def findOwner(gameData, sea):
     for unit in gameData.getUnits():
-        if unit.location == sea.name and getUnitData(gameData, unit.type)[0] == "Naval" and unit.type != "Submarine":
+        if unit.location == sea.name and getDomain(gameData, unit.type) == "Naval" and unit.type != "Submarine":
             return gameData.getNation(unit.nation)
     return None
 
 def findCoastOccupant(gameData, territory):
     for unit in gameData.getUnits():
-        if unit.location == territory.name and getUnitData(gameData, unit.type)[0] == "Naval":
+        if unit.location == territory.name and getDomain(gameData, unit.type) == "Naval":
             return gameData.getNation(unit.nation)
     return None
 
@@ -179,7 +179,8 @@ def findCooldown(gameData, unitType: str, terrain: int | str, stability: int | f
     else:
         stabEffect = -1 / 40 * stability + 161 / 40
 
-    domain, data = getUnitData(gameData, unitType)
+    domain = getDomain(gameData, unitType)
+    data = getUnitData(gameData, unitType)[1]
     if domain == "Naval":
         return data["Cooldown"] * stabEffect
 
@@ -202,3 +203,12 @@ def findWeight(gameData, units: list[Unit]):
   for unit in units:
     unitData = getUnitData(gameData, unit.type)[1]
     weight += unit.quantity * unitData["Weight"] / unitData["Each"]
+  return weight
+
+def dead(gameData, nation) -> bool:
+    if gameData.getNationTerr(nation.name):
+        return False
+    for u in gameData.getUnits():
+        if u.nation == nation.name and getDomain(gameData, u.type) != "Naval":
+            return False
+    return True

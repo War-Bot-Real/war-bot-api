@@ -62,7 +62,7 @@ def quadify(arg):
   return (z)
   
 def pxToKm(gameData, distance):
-    return distance * gameData.getMapData()["pxToKm"]
+    return distance * gameData.getMapData(gameData.getMapName())["pxToKm"]
 
 def calcDistance(tile1, tile2):
     loc1 = tile1.location
@@ -93,3 +93,10 @@ def addToDict(dict1: dict[any, int], toAdd: dict[any, int]):
 
 def formatNum(number: int | float):
   return "{:,}".format(number)
+
+def getSettings(gameData, nation) -> dict:
+    sett = nation.settings
+    for i, data in gameData.getDefaultGameData()["Settings"]["Player"].items():
+        if i not in sett:
+            sett[i] = data["Default"]
+    return sett

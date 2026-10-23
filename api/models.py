@@ -42,17 +42,10 @@ class Nation:
     self.centralized = data["centralized"]
     self.last = data["last"]
     self.theaters = data["theaters"]
+    self.settings = data.get("settings", {})
 
   def canEnter(self) -> set[str]:
     return {self.name, *self.diplomacy["Trusted"]}
-
-  def getSettings(self) -> dict:
-    # TODO: Implement nation settings lookup.
-    raise NotImplementedError("Nation settings lookup is not implemented")
-
-  def dead(self) -> bool:
-    # TODO: Implement nation elimination checks.
-    raise NotImplementedError("Nation elimination checks are not implemented")
 
 class Unit:
   def __init__(self, data):
