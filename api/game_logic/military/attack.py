@@ -1,11 +1,11 @@
 import random
-from api.models import Territory, Sea, Nation, Unit
+from api.models import Territory, Sea, Nation, Unit, NavalBattleResponse, LandBattleResponse
 from api.game_logic.military.management import getUnitData
 from api.game_logic.shared import formatTime, findquan, addToDict
 from api.game_logic.military.shared import getDomain, canTakeoff, inRange, findCoastOccupant, findFuelRequired, findOwner, getAllBorders, station, antiAirDef, getNavalPower, devastationRatio, convertIntToBattleId, findCooldown, cooldownMultiplier, getCapacity, getLoad, findWeight, dead
 from api.game_logic.shared import formatList, formatNum, getSettings
 from api.game_logic.military.pathFinder import shortestPathFinder, calcDistance
-from api.game_logic.messages.military import formatRetreatMessage, formatIndividualCas, annexAtSea, annexAward, annexFailed, annexNews, annexSuccess
+from api.game_logic.messages.military import formatRetreatMessage, formatIndividualCas, annexAtSea, annexAward, annexFailed, annexNews, annexSuccess, generateMessage
 from api.game_logic.annexation import annex
 
 def strength(gameData, divs: list[Unit], type: str) -> float:
@@ -464,8 +464,10 @@ def attack(gameData, nation: Nation, target: Territory | Sea, units: list[Unit])
             else:
                 stabloss = -1
 
+            msg = generateMessage(participantNation, nation, defN, target, stabloss, allcas, battle, navBat)
             participantNation.stability += stabloss
             gameData.updateNation(participantNation.name, {"stability": participantNation.stability})
+            gameData.createMessage(None, participantNation, "battle", msg)
 
     # ---------- Non-land battle ----------
     else:
@@ -797,12 +799,6 @@ def retreatAircraft(gameData, aircraft: list[Unit]) -> dict:
 
     return byTile
 
-class NavalBattleResponse:
-    def __init__(self, attWin: bool, destroyedShips: set[Unit], navalLogs: list[str]):
-        self.attWin = attWin
-        self.destroyedShips = destroyedShips
-        self.logs = navalLogs
-
 def navalBattle(gameData, attNation: Nation, attDivs: list[Unit], defDivs: list[Unit]) -> NavalBattleResponse:
     attforce = {"Destroyer": [], "Battleship": [], "Submarine": [], "Other Ships": []}
     defforce = {"Destroyer": [], "Battleship": [], "Submarine": [], "Other Ships": []}
@@ -955,17 +951,6 @@ def retreatShips(gameData, ships: list[Unit]) -> dict[str, list[str]]:
         byTile.setdefault(newLoc.name, []).append(unit.name)
 
     return byTile
-  
-class LandBattleResponse:
-    def __init__(self, battleId: str, attWin: bool, attCas: dict[Unit, int], attSaved: int, defCasByNation: dict[str, dict[Unit, int]], defSaved: int, undefended: bool, defFuelShortages: list[str]):
-        self.battleId = battleId
-        self.attWin = attWin
-        self.attCas = attCas
-        self.attSaved = attSaved
-        self.defCas = defCasByNation
-        self.defSaved = defSaved
-        self.undefended = undefended
-        self.defFuelShortages = defFuelShortages
 
 def landBattle(gameData, tiq: Territory, niq: Nation, attDivs: list[Unit], defDivs: list[Unit]) -> LandBattleResponse:
     defDivsByNation = {}
@@ -1249,7 +1234,8 @@ def generateAnnexMessage(gameData, niq: Nation, defN: Nation):
     for n, amount in moneyData.items():
         nat = gameData.getNation(n)
         if nat != "None" and amount != 0 and nat != niq:
-            gameData.createMessage("system", nat.name, "notification", annexAward(defN.name, formatNum(amount), tryAnnex["Stability"][n]))
+            #TODO: Investigate
+            gameData.createMessage(None, nat.name, "annex", annexAward(defN.name, formatNum(amount), tryAnnex["Stability"][n]))
 
-    gameData.createMessage("system", "news", "news", annexNews(defN.flag, defN.name, niq.flag, niq.demonym))
+    gameData.createMessage(None, None, "news", annexNews(defN.flag, defN.name, niq.flag, niq.demonym))
     return msg

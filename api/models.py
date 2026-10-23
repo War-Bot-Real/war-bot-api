@@ -56,3 +56,20 @@ class Unit:
     self.location = data["location"]
     self.tiredUntil = data["tiredUntil"]
     self.active = data["active"]
+
+class LandBattleResponse:
+    def __init__(self, battleId: str, attWin: bool, attCas: dict[Unit, int], attSaved: int, defCasByNation: dict[str, dict[Unit, int]], defSaved: int, undefended: bool, defFuelShortages: list[str]):
+        self.battleId = battleId
+        self.attWin = attWin
+        self.attCas = attCas
+        self.attSaved = attSaved
+        self.defCas = defCasByNation
+        self.defSaved = defSaved
+        self.undefended = undefended
+        self.defFuelShortages = defFuelShortages
+
+class NavalBattleResponse:
+    def __init__(self, attWin: bool, destroyedShips: set[Unit], navalLogs: list[str]):
+        self.attWin = attWin
+        self.destroyedShips = destroyedShips
+        self.logs = navalLogs

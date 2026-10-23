@@ -100,3 +100,21 @@ def getSettings(gameData, nation) -> dict:
         if i not in sett:
             sett[i] = data["Default"]
     return sett
+
+def estimate(num):
+  if num > 100000000:
+      return "hundreds of millions of"
+  if num > 10000000:
+      return "tens of millions of"
+  elif num > 1000000:
+      return "millions of"
+  elif num > 100000:
+      return "hundreds of thousands of"
+  elif num > 10000:
+      return "tens of thousands of"
+  elif num > 1000:
+      return "thousands of"
+  elif num > 100:
+      return "hundreds of"
+  else:
+      return "several"
