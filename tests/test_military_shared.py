@@ -1,6 +1,6 @@
 import pytest
 from api.game_logic.military.shared import canTakeoff, dead, findCooldown, findWeight, getCapacity, getDomain, inRange
-from api.game_logic.military.attack import aircraftInterception, groundBombardment
+from api.game_logic.military.attack import aircraftInterception, executeBattleCas, groundBombardment
 from api.game_logic.shared import getSettings
 from api.models import Nation, Territory, Unit
 
@@ -36,6 +36,59 @@ def gameData():
 
 def test_transporter_capacity(gameData, transporter):
     assert getCapacity(gameData, transporter) == 10
+
+def test_execute_battle_cas_applies_counted_land_losses_to_survivors_and_destroyed_units():
+    class UnitCasGameData:
+        def __init__(self):
+            self.updated = {}
+            self.deleted = []
+
+        def updateUnit(self, name, changes):
+            self.updated[name] = changes
+
+        def deleteUnit(self, name):
+            self.deleted.append(name)
+
+    gameData = UnitCasGameData()
+    survivor = Unit({
+        "name": "LI-1",
+        "type": "Light Infantry",
+        "quantity": 5,
+        "nation": "France",
+        "location": "Lyon",
+        "tiredUntil": 12,
+        "active": True
+    })
+    destroyed = Unit({
+        "name": "LI-2",
+        "type": "Light Infantry",
+        "quantity": 2,
+        "nation": "France",
+        "location": "Paris",
+        "tiredUntil": 0,
+        "active": True
+    })
+    defender = Unit({
+        "name": "LI-3",
+        "type": "Light Infantry",
+        "quantity": 4,
+        "nation": "Spain",
+        "location": "Madrid",
+        "tiredUntil": 0,
+        "active": True
+    })
+
+    attDivs = [survivor, destroyed]
+    defDivs = [defender]
+    losses = executeBattleCas(gameData, attDivs, defDivs, {survivor: 2, destroyed: 2, defender: 3})
+
+    assert losses == {survivor: 2, destroyed: 2, defender: 3}
+    assert survivor.quantity == 3
+    assert defender.quantity == 1
+    assert gameData.updated == {"LI-1": {"quantity": 3}, "LI-3": {"quantity": 1}}
+    assert gameData.deleted == ["LI-2"]
+    assert attDivs == [survivor]
+    assert defDivs == [defender]
 
 def test_capacity_missing_returns_zero(gameData):
     unit = Unit({
@@ -262,7 +315,7 @@ def test_ground_bombardment_resolves_ground_target_units():
     })
 
     assert groundBombardment(gameData, [bomber], [infantry], True) == {infantry: 2}
-    assert infantry.quantity == 3
+    assert infantry.quantity == 5
 
 def test_naval_cooldown_uses_naval_data():
     class NavalGameData(FakeGameData):

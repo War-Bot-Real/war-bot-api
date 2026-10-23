@@ -70,7 +70,7 @@ def calcCasualtyStabLoss(niq: Nation, cas: dict[str, int], won: bool) -> float:
         stab = -(casnum / 1000) ** 0.8 / 10 ** 0.8
     return stab
 
-def executeBattleCas(gameData, attDivs: list[Unit], defDivs: list[Unit], casualties: set[Unit]) -> dict[Unit, int]:
+def executeBattleCas(gameData, attDivs: list[Unit], defDivs: list[Unit], casualties: set[Unit] | dict[Unit, int]) -> dict[Unit, int]:
     losses = mergeCasualties(gameData, casualties, attDivs + defDivs)
 
     for unit, loss in losses.items():
@@ -86,15 +86,20 @@ def executeBattleCas(gameData, attDivs: list[Unit], defDivs: list[Unit], casualt
 
     return losses
 
-def mergeCasualties(gameData, casualties: set[Unit], troop_list: list[Unit] | None = None) -> dict[Unit, int]:
+def mergeCasualties(gameData, casualties: set[Unit] | dict[Unit, int], troop_list: list[Unit] | None = None) -> dict[Unit, int]:
     if troop_list is None:
         troop_list = gameData.getUnits()
 
     losses = {}
-    for casualty in casualties:
+    if isinstance(casualties, dict):
+        casualty_counts = casualties.items()
+    else:
+        casualty_counts = ((casualty, 1) for casualty in casualties)
+
+    for casualty, count in casualty_counts:
         unit = next((unit for unit in troop_list if unit.name == casualty.name), None)
         if unit is not None:
-            losses[unit] = losses.get(unit, 0) + 1
+            losses[unit] = losses.get(unit, 0) + count
 
     return losses
 
@@ -399,6 +404,7 @@ def attack(gameData, nation: Nation, target: Territory | Sea, units: list[Unit])
         offensive = groundBombardment(gameData, attDivs, defDivs, navBat is None)
 
         if offensive:
+            executeBattleCas(gameData, attDivs, defDivs, offensive)
             byNation = casByNation(offensive)
             battleLog["Casualties"]["Offensive Ground Bombardment"] = byNation
             addToAllCas(allcas, byNation)
@@ -406,6 +412,7 @@ def attack(gameData, nation: Nation, target: Territory | Sea, units: list[Unit])
         defensive = groundBombardment(gameData, defDivs, attDivs, navBat is None)
 
         if defensive:
+            executeBattleCas(gameData, attDivs, defDivs, defensive)
             byNation = casByNation(defensive)
             battleLog["Casualties"]["Defensive Ground Bombardment"] = byNation
             addToAllCas(allcas, byNation)
@@ -424,6 +431,12 @@ def attack(gameData, nation: Nation, target: Territory | Sea, units: list[Unit])
             byType = groupUnitsByType(battle.defCas[defender])
             battleLog["Casualties"]["Land Battle"][defender] = byType
             addToAllCas(allcas, {defender: byType})
+
+        landCasualties = dict(battle.attCas)
+        for nationCasualties in battle.defCas.values():
+            for unit, casualties in nationCasualties.items():
+                landCasualties[unit] = landCasualties.get(unit, 0) + casualties
+        executeBattleCas(gameData, attDivs, defDivs, landCasualties)
 
         if battle.defFuelShortages:
             battleLog["Fuel Shortages"] = battle.defFuelShortages
@@ -500,6 +513,11 @@ def retreatForces(gameData, tiq: Territory, divs: list[Unit]) -> str:
     encircled = [unit for unit in air if unit.location == tiq.name]
     if encircled:
         msg += "\nThe following aircraft were not in range of any airports, and thus were destroyed:" + formatEncirclementMessage(encircled) + "\n"
+        for unit in encircled:
+            gameData.deleteUnit(unit.name)
+            unit.quantity = 0
+            if unit in divs:
+                divs.remove(unit)
 
     return msg
 
@@ -594,6 +612,7 @@ def aircraftInterception(gameData, nation: Nation, planes: list[Unit], dest: Ter
 
 def groundBombardment(gameData, attDivs: list[Unit], defDivs: list[Unit], includeAttackers: bool) -> dict[Unit, int]:
     casualties = {}
+    remainingQuantity = {unit: unit.quantity for unit in defDivs}
     attBombers = {"Bomber": [], "Attacker": []}
 
     for unit in attDivs:
@@ -632,11 +651,11 @@ def groundBombardment(gameData, attDivs: list[Unit], defDivs: list[Unit], includ
                 if divsKilled >= limit:
                     break
 
-                canKill = bomberData["Bombing"]["Strength"] * len(bombers) * unit.quantity / unitData["Each"]
+                canKill = bomberData["Bombing"]["Strength"] * len(bombers) * remainingQuantity[unit] / unitData["Each"]
                 killed = round(min(canKill, limit - divsKilled) * unitData["Each"])
                 divsKilled += killed / unitData["Each"]
-                unit.quantity -= killed
                 casualties[unit] = casualties.get(unit, 0) + killed
+                remainingQuantity[unit] -= killed
 
             if divsKilled >= limit:
                 break
@@ -773,6 +792,7 @@ def retreatAircraft(gameData, aircraft: list[Unit]) -> dict:
 
         newLoc = random.choice(list(possible))
         unit.location = newLoc.name if isinstance(newLoc, Territory) else newLoc.name
+        gameData.updateUnit(unit.name, {"location": unit.location})
         byTile.setdefault(newLoc.name, []).append(unit.name)
 
     return byTile
@@ -931,6 +951,7 @@ def retreatShips(gameData, ships: list[Unit]) -> dict[str, list[str]]:
 
         newLoc = random.choice(possible)
         unit.location = newLoc.name
+        gameData.updateUnit(unit.name, {"location": unit.location})
         byTile.setdefault(newLoc.name, []).append(unit.name)
 
     return byTile
@@ -1005,8 +1026,12 @@ def landBattle(gameData, tiq: Territory, niq: Nation, attDivs: list[Unit], defDi
 
     casualties = determineCasualties(gameData, tiq, [u for u in attDivs if getDomain(gameData, u.type) == "Ground"], [u for u in defDivs if getDomain(gameData, u.type) == "Ground"], aStren, dStren)
 
-    aLostAll = all(unit.quantity == 0 for unit in casualties["acas"])
-    dLostAll = all(unit.quantity == 0 for nationCasualties in casualties["dcas"].values() for unit in nationCasualties)
+    aLostAll = all(unit.quantity - casualties["acas"].get(unit, 0) <= 0 for unit in casualties["acas"])
+    dLostAll = all(
+        unit.quantity - loss <= 0
+        for nationCasualties in casualties["dcas"].values()
+        for unit, loss in nationCasualties.items()
+    )
 
     if aLostAll:
         attWin = False
@@ -1016,12 +1041,13 @@ def landBattle(gameData, tiq: Territory, niq: Nation, attDivs: list[Unit], defDi
     if attWin:
         for unit in attDivs:
             unit.location = tiq.name
+            gameData.updateUnit(unit.name, {"location": unit.location})
             gameData.updateUnit(unit.name, {"location": unit.location, "quantity": unit.quantity})
 
     gameData.updateTerritory(tiq.name, {"devastation": tiq.devastation})
 
     attackerUnits = [
-        {"type": unit.type, "initial_quantity": attInitial[unit], "casualties": casualties["acas"].get(unit, 0), "remaining_quantity": unit.quantity}
+        {"type": unit.type, "initial_quantity": attInitial[unit], "casualties": casualties["acas"].get(unit, 0), "remaining_quantity": attInitial[unit] - casualties["acas"].get(unit, 0)}
         for unit in attDivs
     ]
 
@@ -1029,7 +1055,7 @@ def landBattle(gameData, tiq: Territory, niq: Nation, attDivs: list[Unit], defDi
         {
             "nation": nationName,
             "units": [
-                {"type": unit.type, "initial_quantity": defInitial[unit], "casualties": casualties["dcas"].get(nationName, {}).get(unit, 0), "remaining_quantity": unit.quantity}
+                {"type": unit.type, "initial_quantity": defInitial[unit], "casualties": casualties["dcas"].get(nationName, {}).get(unit, 0), "remaining_quantity": defInitial[unit] - casualties["dcas"].get(nationName, {}).get(unit, 0)}
                 for unit in units
             ]
         }
@@ -1084,7 +1110,6 @@ def determineCasualties(gameData, tiq: Territory, attDivs: list[Unit], defDivs: 
         if unit.quantity - cas < getUnitData(gameData, unit.type)[1]["Minimum"]:
             cas = unit.quantity
         cas = round(cas)
-        unit.quantity -= cas
         acas[unit] = cas
 
     for unit in defDivs:
@@ -1101,8 +1126,6 @@ def determineCasualties(gameData, tiq: Territory, attDivs: list[Unit], defDivs: 
             cas = unit.quantity
         cas = round(cas)
         dcas.setdefault(unit.nation, {})[unit] = cas
-        unit.quantity -= cas
-
     return {"acas": acas, "dcas": dcas, "asaved": asaved, "dsaved": dsaved}
 
 def retreatGroundForces(gameData, tiq: Territory, divs: list[Unit]) -> str:
@@ -1169,6 +1192,14 @@ def retreatGroundForces(gameData, tiq: Territory, divs: list[Unit]) -> str:
                 gameData.deleteUnit(unit.name)
                 if unit in divs:
                     divs.remove(unit)
+
+        if unit in divs:
+            gameData.updateUnit(unit.name, {
+                "quantity": unit.quantity,
+                "location": unit.location,
+                "tiredUntil": unit.tiredUntil,
+                "active": unit.active
+            })
 
     for destination, units in retreats.items():
         retreat += f"\nTo {destination}: Divisions `{ '`, `'.join(units) }`"
