@@ -7,6 +7,7 @@ from api.game_logic.shared import formatList, formatNum, getSettings
 from api.game_logic.military.pathFinder import shortestPathFinder, calcDistance
 from api.game_logic.messages.military import formatRetreatMessage, formatIndividualCas, annexAtSea, annexAward, annexFailed, annexNews, annexSuccess, generateMessage
 from api.game_logic.annexation import annex
+from api.repositories.gameData import GameData
 
 def strength(gameData, divs: list[Unit], type: str) -> float:
     total = 0
@@ -118,7 +119,7 @@ def planeCooldown(gameData, unitType: str, startTerr: Territory | Sea | Unit, en
     pxToKm = gameData.getMapData(mapName)["pxToKm"]
     return cooldown * pxToKm * dist / 100
 
-def attack(gameData, nation: Nation, target: Territory | Sea, units: list[Unit]):
+def attack(gameData: GameData, nation: Nation, target: Territory | Sea, units: list[Unit]):
     # ---------- Defender ----------
     defDivs = []
 
@@ -467,7 +468,7 @@ def attack(gameData, nation: Nation, target: Territory | Sea, units: list[Unit])
             msg = generateMessage(participantNation, nation, defN, target, stabloss, allcas, battle, navBat)
             participantNation.stability += stabloss
             gameData.updateNation(participantNation.name, {"stability": participantNation.stability})
-            gameData.createMessage(None, participantNation, "battle", msg)
+            gameData.createMessage(None, participantNation.name, "battle", msg)
 
     # ---------- Non-land battle ----------
     else:
