@@ -37,7 +37,7 @@ def generateMessage(niq: Nation, attN: Nation, defN: Nation, tile: Territory | S
         msg += f"\nAllied medical units helped to save {formatNum(landBattle.defSaved)} soldiers!\n"
   
   if round(stab, 2) != 0:
-    msg += "\nStability: **{}{}%**".format('+' if stab > 0 else '', round(stab, 2))
+    msg += "\nStability: <b>{}{}%</b>".format('+' if stab > 0 else '', round(stab, 2))
 
   if landBattle:
     if niq.name in landBattle.defFuelShortages:
