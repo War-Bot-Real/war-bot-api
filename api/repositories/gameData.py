@@ -230,15 +230,12 @@ class GameData:
         return result.data[0]["id"] if result.data else 0
     
     def createMapChange(self, territory, oldOwner, newOwner):
-        res = self.supabase.table("map_changes").insert({
+        self.supabase.table("map_changes").insert({
             "from": oldOwner,
             "to": newOwner,
             "territory": territory,
             "game_time": self.gameTime()
         }).execute()
-
-        result = res.data[0]
-        self.broadcastMessage(result)
     
     # ---------- Game Data ----------
 
