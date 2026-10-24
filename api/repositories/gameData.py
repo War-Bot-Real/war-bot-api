@@ -10,7 +10,6 @@ from api.models import Territory, Sea, Nation, Unit
 EPOCH = datetime(1970, 1, 1, tzinfo=ZoneInfo("America/Toronto"))
 
 class GameData:
-
     def __init__(self, supabase: Client):
         self.supabase = supabase
 

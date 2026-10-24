@@ -24,6 +24,11 @@ class Sea(Tile):
     super().__init__(data)
 
 class Nation:
+  def __eq__(self, other):
+    if isinstance(other, Nation):
+      return self.name == other.name
+    return False
+    
   def __init__(self, data):
     self.name = data["name"]
     self.balance = data["balance"]
