@@ -229,6 +229,17 @@ class GameData:
         result = self.supabase.table("battles").select("id").order("id", desc=True).limit(1).execute()
         return result.data[0]["id"] if result.data else 0
     
+    def createMapChange(self, territory, oldOwner, newOwner):
+        res = self.supabase.table("map_changes").insert({
+            "from": oldOwner,
+            "to": newOwner,
+            "territory": territory,
+            "game_time": self.gameTime()
+        }).execute()
+
+        result = res.data[0]
+        self.broadcastMessage(result)
+    
     # ---------- Game Data ----------
 
     def getDefaultGameData(self):

@@ -1063,8 +1063,9 @@ def landBattle(gameData, tiq: Territory, niq: Nation, attDivs: list[Unit], defDi
 
     return LandBattleResponse(battleId, attWin, casualties["acas"], casualties["asaved"], casualties["dcas"], casualties["dsaved"], dChance == 0, fuelShortages)
 
-def landBattleAftermath(gameData, niq: Nation, tiq: Territory, battle: LandBattleResponse):
+def landBattleAftermath(gameData: GameData, niq: Nation, tiq: Territory, battle: LandBattleResponse):
     if battle.attWin:
+        gameData.createMapChange(tiq.name, tiq.nation, niq.name)
         tiq.nation = niq.name
         currentTime = gameData.gameTime()
         integrationMultiplier = cooldownMultiplier["Integration"]
