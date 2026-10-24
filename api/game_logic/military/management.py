@@ -1,7 +1,7 @@
 from api.game_logic.shared import quadify
 from api.game_logic.military.shared import getUnitData, getDomain
 
-def deployUnit(gameData, nation, territory, unit, quantity):
+def deployUnit(gameData, nation, territory, unit, quantity, unitData=None):
     if not isinstance(quantity, int):
         raise ValueError("Use an integer!")
 
@@ -20,7 +20,10 @@ def deployUnit(gameData, nation, territory, unit, quantity):
         raise ValueError("This territory has not been integrated yet")
 
     # Find unit
-    unit, unitdata = getUnitData(gameData, unit)
+    if unitData is None:
+        unitData = gameData.getDefaultGameData()["Units"]
+
+    unit, unitdata = getUnitData(gameData, unit, unitData)
     if unitdata is None:
         raise ValueError("Invalid Unit Type")
 
@@ -34,7 +37,7 @@ def deployUnit(gameData, nation, territory, unit, quantity):
     if nation.inventory[inventoryName] < quantity:
         raise ValueError(f"Nation does not have enough {inventoryName}")
 
-    unitDomain = getDomain(gameData, unit)
+    unitDomain = getDomain(gameData, unit, unitData)
     
     if unitDomain == "Naval":
         # Coast occupant logic will be implemented later
@@ -111,7 +114,7 @@ def getForces(gameData, nation, domain=None, theater=None):
     units = gameData.getUnits(nation.name)
 
     if domain is not None:
-        units = [u for u in units if getDomain(gameData, u.type) == domain]
+        units = [u for u in units if getDomain(gameData, u.type, masterdata["Units"]) == domain]
 
     if territoryNames is not None:
         units = [u for u in units if u.location in territoryNames]
@@ -203,7 +206,7 @@ def mergeUnits(gameData, nation, unitNames):
         "failed": failed
     }
 
-def splitUnit(gameData, nation, unitName, divisions=2):
+def splitUnit(gameData, nation, unitName, divisions=2, unitData=None):
     unit = gameData.getUnit(unitName)
 
     if not unit:
@@ -216,9 +219,11 @@ def splitUnit(gameData, nation, unitName, divisions=2):
         raise ValueError("You must split into at least 2 divisions")
 
     quantity = unit.quantity // divisions
-    unitData = getUnitData(gameData, unit.type)[1]
+    if unitData is None:
+        unitData = gameData.getDefaultGameData()["Units"]
+    unitStats = getUnitData(gameData, unit.type, unitData)[1]
 
-    if quantity < unitData["Minimum"]:
+    if quantity < unitStats["Minimum"]:
         raise ValueError("The resulting divisions would be too small")
 
     loaded = gameData.getUnits()
@@ -234,8 +239,8 @@ def splitUnit(gameData, nation, unitName, divisions=2):
     newUnits = []
 
     for _ in range(divisions - 1):
-        count = gameData.incrementUnitCounters(unitData["Short Form"])
-        unitId = quadify(count) + unitData["Short Form"]
+        count = gameData.incrementUnitCounters(unitStats["Short Form"])
+        unitId = quadify(count) + unitStats["Short Form"]
 
         newUnit = {
             "name": unitId,
@@ -255,7 +260,7 @@ def splitUnit(gameData, nation, unitName, divisions=2):
         "divisions": [unit.name] + [u["name"] for u in newUnits]
     }
 
-def disbandUnit(gameData, nation, unitName):
+def disbandUnit(gameData, nation, unitName, unitData=None):
     unit = gameData.getUnit(unitName)
 
     if not unit:
@@ -269,9 +274,11 @@ def disbandUnit(gameData, nation, unitName):
         if territory.nation != nation.name:
             raise ValueError("That unit is not yours")
 
-        unitData = getUnitData(gameData, unit.type)[0]
+        if unitData is None:
+            unitData = gameData.getDefaultGameData()["Units"]
+        unitType = getUnitData(gameData, unit.type, unitData)[0]
 
-        if unitData == "Naval":
+        if unitType == "Naval":
             raise ValueError("You cannot disband another nation's naval unit")
 
         if unit.nation in nation.diplomacy["Trusted"]:

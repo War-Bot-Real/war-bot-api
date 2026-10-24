@@ -1,18 +1,20 @@
 from api.game_logic.shared import calcDistance, pxToKm, quadify
 from api.models import Territory, Unit
 
-def getUnitData(gameData, unittype):
-  allunits = gameData.getDefaultGameData()["Units"]
-  for domain in allunits:
-    for unit in allunits[domain]:
-      if unit.lower() == unittype.lower() or allunits[domain][unit]["Short Form"] == unittype.upper(): 
-        return unit, allunits[domain][unit]
+def getUnitData(gameData, unittype, unitData = None):
+  if not unitData:
+    unitData = gameData.getDefaultGameData()["Units"]
+  for domain in unitData:
+    for unit in unitData[domain]:
+      if unit.lower() == unittype.lower() or unitData[domain][unit]["Short Form"] == unittype.upper():
+        return unit, unitData[domain][unit]
   return None, None
 
-def getDomain(gameData, unittype):
-  allunits = gameData.getDefaultGameData()["Units"]
-  for domain in allunits:
-    if unittype in allunits[domain]:
+def getDomain(gameData, unittype, unitData = None):
+  if not unitData:
+    unitData = gameData.getDefaultGameData()["Units"]
+  for domain in unitData:
+    if unittype in unitData[domain]:
       return domain
   return None
 
@@ -39,18 +41,18 @@ def station(gameData, division):
 
     return None
 
-def getCapacity(gameData, unit):
-    data = getUnitData(gameData, unit.type)[1]
+def getCapacity(gameData, unit, unitData=None):
+    data = getUnitData(gameData, unit.type, unitData)[1]
     return unit.quantity * data.get("Capacity", 0)
   
-def getAllBorders(gameData, tile):
+def getAllBorders(gameData, tile, unitData=None):
     borders = tile.bordering.copy()
 
     if isinstance(tile, Territory):
         borders += tile.coast
 
         for unit in gameData.getUnits():
-            if unit.location == tile.name and getCapacity(gameData, unit) > 0:
+            if unit.location == tile.name and getCapacity(gameData, unit, unitData) > 0:
                 borders.append(unit.name)
     else:
         for territory in gameData.getAllTerr():
@@ -59,12 +61,12 @@ def getAllBorders(gameData, tile):
 
     return borders
   
-def inRange(gameData, plane, target, roundTrip=True):
-    if plane.location in getAllBorders(gameData, target):
+def inRange(gameData, plane, target, roundTrip=True, unitData=None):
+    if plane.location in getAllBorders(gameData, target, unitData):
         return True
 
-    unitData = getUnitData(gameData, plane.type)[1]
-    unitRange = unitData["Range"]
+    planeData = getUnitData(gameData, plane.type, unitData)[1]
+    unitRange = planeData["Range"]
 
     location = station(gameData, plane)
 
@@ -77,7 +79,7 @@ def inRange(gameData, plane, target, roundTrip=True):
         if location is None:
             return False
 
-        if location.name in getAllBorders(gameData, target):
+        if location.name in getAllBorders(gameData, target, unitData):
             return True
 
     distance = calcDistance(location, target)
@@ -99,23 +101,23 @@ def canTakeoff(gameData, plane: Unit):
       return True
   return False #Shouldn't ever reach here
 
-def findOwner(gameData, sea):
+def findOwner(gameData, sea, unitData=None):
     for unit in gameData.getUnits():
-        if unit.location == sea.name and getDomain(gameData, unit.type) == "Naval" and unit.type != "Submarine":
+        if unit.location == sea.name and getDomain(gameData, unit.type, unitData) == "Naval" and unit.type != "Submarine":
             return gameData.getNation(unit.nation)
     return None
 
-def findCoastOccupant(gameData, territory):
+def findCoastOccupant(gameData, territory, unitData=None):
     for unit in gameData.getUnits():
-        if unit.location == territory.name and getDomain(gameData, unit.type) == "Naval":
+        if unit.location == territory.name and getDomain(gameData, unit.type, unitData) == "Naval":
             return gameData.getNation(unit.nation)
     return None
 
-def findFuelRequired(gameData, unitlist: list[Unit], action: str) -> float:
+def findFuelRequired(gameData, unitlist: list[Unit], action: str, unitData=None) -> float:
     fuelRequired = 0.0
 
     for unit in unitlist:
-        data = getUnitData(gameData, unit.type)[1]
+        data = getUnitData(gameData, unit.type, unitData)[1]
         fuelRequired += data["Fuel"][action.title()] * unit.quantity / data["Each"]
 
     return fuelRequired
@@ -123,9 +125,9 @@ def findFuelRequired(gameData, unitlist: list[Unit], action: str) -> float:
 def getLoad(gameData, unit: Unit) -> list[Unit]:
     return [loadedUnit for loadedUnit in gameData.getUnits() if loadedUnit.location == unit.name]
 
-def antiAirDef(gameData, unit: Unit) -> int | float:
-    domain = getDomain(gameData, unit.type)
-    unitdata = getUnitData(gameData, unit.type)[1]
+def antiAirDef(gameData, unit: Unit, unitData=None) -> int | float:
+    domain = getDomain(gameData, unit.type, unitData)
+    unitdata = getUnitData(gameData, unit.type, unitData)[1]
 
     if domain != "Naval":
         if unit.type in ["Fighter", "Anti-Air"]:
@@ -138,8 +140,9 @@ def antiAirDef(gameData, unit: Unit) -> int | float:
 
     return 0
 
-def getNavalPower(gameData) -> dict[str, int | float]:
-    navalData = gameData.getDefaultGameData()["Units"]["Naval"]
+def getNavalPower(gameData, navalData = None) -> dict[str, int | float]:
+    if not navalData:
+      navalData = gameData.getDefaultGameData()["Units"]["Naval"]
     return {unitType: data["Power"] for unitType, data in navalData.items()}
 
 def devastationRatio():
@@ -172,15 +175,15 @@ cooldownMultiplier = {
   "Rail": 450 #how many seconds it takes to move something 100 pixels
 }
 
-def findCooldown(gameData, unitType: str, terrain: int | str, stability: int | float) -> float:
+def findCooldown(gameData, unitType: str, terrain: int | str, stability: int | float, unitData=None) -> float:
     mapName = gameData.getMapName()
     if stability > 1:
         stabEffect = 4.0 / stability ** (1 / 3)
     else:
         stabEffect = -1 / 40 * stability + 161 / 40
 
-    domain = getDomain(gameData, unitType)
-    data = getUnitData(gameData, unitType)[1]
+    domain = getDomain(gameData, unitType, unitData)
+    data = getUnitData(gameData, unitType, unitData)[1]
     if domain == "Naval":
         return data["Cooldown"] * stabEffect
 
@@ -195,20 +198,20 @@ def findCooldown(gameData, unitType: str, terrain: int | str, stability: int | f
     divisor = data["Speed"]["Divisor"]
     return 1000 * (terrain + 3) ** exponent / divisor * stabEffect
 
-def getCapacity(gameData, unit: Unit) -> float:
-    return getUnitData(gameData, unit.type)[1].get("Capacity", 0)
+def getCapacity(gameData, unit: Unit, unitData=None) -> float:
+    return getUnitData(gameData, unit.type, unitData)[1].get("Capacity", 0)
 
-def findWeight(gameData, units: list[Unit]):
+def findWeight(gameData, units: list[Unit], unitData=None):
   weight = 0
   for unit in units:
-    unitData = getUnitData(gameData, unit.type)[1]
-    weight += unit.quantity * unitData["Weight"] / unitData["Each"]
+    data = getUnitData(gameData, unit.type, unitData)[1]
+    weight += unit.quantity * data["Weight"] / data["Each"]
   return weight
 
-def dead(gameData, nation) -> bool:
+def dead(gameData, nation, unitData=None) -> bool:
     if gameData.getNationTerr(nation.name):
         return False
     for u in gameData.getUnits():
-        if u.nation == nation.name and getDomain(gameData, u.type) != "Naval":
+        if u.nation == nation.name and getDomain(gameData, u.type, unitData) != "Naval":
             return False
     return True

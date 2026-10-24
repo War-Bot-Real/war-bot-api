@@ -9,11 +9,11 @@ from api.game_logic.messages.military import formatRetreatMessage, formatIndivid
 from api.game_logic.annexation import annex
 from api.repositories.gameData import GameData
 
-def strength(gameData, divs: list[Unit], type: str) -> float:
+def strength(gameData, divs: list[Unit], type: str, unitData=None) -> float:
     total = 0
 
     for unit in divs:
-        domain, data = getUnitData(gameData, unit.type)
+        domain, data = getUnitData(gameData, unit.type, unitData)
         unitStrength = data.get("Strength", {}).get("Attack" if type == "att" else "Defense")
 
         if unitStrength is None:
@@ -104,7 +104,7 @@ def mergeCasualties(gameData, casualties: set[Unit] | dict[Unit, int], troop_lis
 
     return losses
 
-def planeCooldown(gameData, unitType: str, startTerr: Territory | Sea | Unit, endTerr: Territory | Sea | Unit, roundTrip: bool) -> float:
+def planeCooldown(gameData, unitType: str, startTerr: Territory | Sea | Unit, endTerr: Territory | Sea | Unit, roundTrip: bool, unitData=None) -> float:
     mapName = gameData.getMapName()
     if isinstance(startTerr, Unit):
         startTerr = station(gameData, startTerr)
@@ -115,11 +115,12 @@ def planeCooldown(gameData, unitType: str, startTerr: Territory | Sea | Unit, en
     if roundTrip:
         dist *= 2
 
-    cooldown = getUnitData(gameData, unitType)[1]["Cooldown"]
+    cooldown = getUnitData(gameData, unitType, unitData)[1]["Cooldown"]
     pxToKm = gameData.getMapData(mapName)["pxToKm"]
     return cooldown * pxToKm * dist / 100
 
 def attack(gameData: GameData, nation: Nation, target: Territory | Sea, units: list[Unit]):
+    unitData = gameData.getDefaultGameData()["Units"]
     # ---------- Defender ----------
     defDivs = []
 
@@ -130,7 +131,7 @@ def attack(gameData: GameData, nation: Nation, target: Territory | Sea, units: l
         if not gameData.atWar(nation.name, unit.nation):
             continue
 
-        domain = getDomain(gameData, unit.type)
+        domain = getDomain(gameData, unit.type, unitData)
 
         if domain != "Air":
             defDivs.append(unit)
@@ -151,13 +152,13 @@ def attack(gameData: GameData, nation: Nation, target: Territory | Sea, units: l
         if unit.nation != nation.name:
             raise ValueError(f"You don't own unit '{unit.name}'")
 
-        domain = getDomain(gameData, unit.type)
+        domain = getDomain(gameData, unit.type, unitData)
 
-        if domain != "Air" and unit.location not in getAllBorders(gameData, target):
+        if domain != "Air" and unit.location not in getAllBorders(gameData, target, unitData):
             notAdjacent.append(unit.name)
             continue
 
-        if domain == "Air" and not inRange(gameData, unit, target):
+        if domain == "Air" and not inRange(gameData, unit, target, unitData=unitData):
             notInRange.append(unit.name)
             continue
 
@@ -168,7 +169,7 @@ def attack(gameData: GameData, nation: Nation, target: Territory | Sea, units: l
         attDivs.append(unit)
 
     for unit in attDivs:
-        domain = getDomain(gameData, unit.type)
+        domain = getDomain(gameData, unit.type, unitData)
 
         if domain == "Ground" and not unit.active:
             entrenched.append(unit.name)
@@ -219,14 +220,14 @@ def attack(gameData: GameData, nation: Nation, target: Territory | Sea, units: l
         raise ValueError(msg)
 
     # ---------- Basic attack validation ----------
-    attdomains = {getDomain(gameData, unit.type) for unit in attDivs}
+    attdomains = {getDomain(gameData, unit.type, unitData) for unit in attDivs}
 
-    if attdomains == {"Ground"} and strength(gameData, attDivs, "att") == 0:
+    if attdomains == {"Ground"} and strength(gameData, attDivs, "att", unitData) == 0:
         raise ValueError("The units you are currently attacking with have 0 attack power. You must use different units alongside these ones.")
 
     # ---------- Determine defender ----------
     if isinstance(target, Sea):
-        defN = findOwner(gameData, target)
+        defN = findOwner(gameData, target, unitData)
 
         if defN is None:
             raise ValueError("Nobody currently occupies that sea. There is nothing to attack.")
@@ -250,7 +251,7 @@ def attack(gameData: GameData, nation: Nation, target: Territory | Sea, units: l
             defN = owner
 
         elif not gameData.atWar(nation.name, owner.name):
-            coastowner = findCoastOccupant(gameData, target)
+            coastowner = findCoastOccupant(gameData, target, unitData)
 
             if coastowner is None:
                 raise ValueError("There is nobody there for you to attack!")
@@ -266,7 +267,7 @@ def attack(gameData: GameData, nation: Nation, target: Territory | Sea, units: l
             defN = owner
 
     # ---------- Fuel ----------
-    fuelRequired = findFuelRequired(gameData, attDivs, "attack")
+    fuelRequired = findFuelRequired(gameData, attDivs, "attack", unitData)
     fuel = nation.inventory.get("Fuel", 0)
 
     if fuelRequired > fuel:
@@ -277,8 +278,8 @@ def attack(gameData: GameData, nation: Nation, target: Territory | Sea, units: l
     gameData.updateNation(nation.name, {"inventory": nation.inventory})
 
     # ---------- Air interception ----------
-    attplanes = [unit for unit in attDivs if getDomain(gameData, unit.type) == "Air"]
-    interception = aircraftInterception(gameData, nation, attplanes, target, False)
+    attplanes = [unit for unit in attDivs if getDomain(gameData, unit.type, unitData) == "Air"]
+    interception = aircraftInterception(gameData, nation, attplanes, target, False, unitData)
 
     if findquan(attDivs) == 0:
         raise ValueError(f"All your planes were intercepted before reaching {target.name}. The battle ended before it began.")
@@ -295,7 +296,7 @@ def attack(gameData: GameData, nation: Nation, target: Territory | Sea, units: l
     # ---------- Intelligence ----------
     intelligent = set()
 
-    for border in getAllBorders(gameData, target):
+    for border in getAllBorders(gameData, target, unitData):
         try:
             territory = gameData.getTerritory(border)
         except ValueError:
@@ -331,7 +332,7 @@ def attack(gameData: GameData, nation: Nation, target: Territory | Sea, units: l
             "Quantity": unit.quantity
         }
 
-        if getDomain(gameData, unit.type) == "Ground":
+        if getDomain(gameData, unit.type, unitData) == "Ground":
             unitInfo["Entrenched"] = not unit.active
 
         if unit.nation in battleLog["Initial"]:
@@ -341,7 +342,7 @@ def attack(gameData: GameData, nation: Nation, target: Territory | Sea, units: l
             allcas[unit.nation] = {}
 
     # ---------- Fighter battle ----------
-    battle = fighterBattle(gameData, attDivs, defDivs)
+    battle = fighterBattle(gameData, attDivs, defDivs, unitData)
 
     if battle:
         cas = executeBattleCas(gameData, attDivs, defDivs, battle)
@@ -350,8 +351,8 @@ def attack(gameData: GameData, nation: Nation, target: Territory | Sea, units: l
         addToAllCas(allcas, byNation)
 
     # ---------- Naval / air raids ----------
-    offensiveRaid = navalAirRaid(gameData, attDivs, defDivs, isinstance(target, Sea))
-    defensiveRaid = navalAirRaid(gameData, defDivs, attDivs, isinstance(target, Sea))
+    offensiveRaid = navalAirRaid(gameData, attDivs, defDivs, isinstance(target, Sea), unitData)
+    defensiveRaid = navalAirRaid(gameData, defDivs, attDivs, isinstance(target, Sea), unitData)
 
     if offensiveRaid or defensiveRaid:
         cas = executeBattleCas(gameData, attDivs, defDivs, offensiveRaid | defensiveRaid)
@@ -364,7 +365,7 @@ def attack(gameData: GameData, nation: Nation, target: Territory | Sea, units: l
     navRetreatMsg = ""
 
     if "Naval" in attdomains:
-        navBat = navalBattle(gameData, nation, attDivs, defDivs)
+        navBat = navalBattle(gameData, nation, attDivs, defDivs, unitData)
 
         if navBat.destroyedShips:
             cas = executeBattleCas(gameData, attDivs, defDivs, navBat.destroyedShips)
@@ -373,12 +374,12 @@ def attack(gameData: GameData, nation: Nation, target: Territory | Sea, units: l
             battleLog["Naval Logs"] = navBat.logs
             addToAllCas(allcas, byNation)
 
-            defShips = [unit for unit in defDivs if getDomain(gameData, unit.type) == "Naval"]
-            attShips = [unit for unit in attDivs if getDomain(gameData, unit.type) == "Naval"]
+            defShips = [unit for unit in defDivs if getDomain(gameData, unit.type, unitData) == "Naval"]
+            attShips = [unit for unit in attDivs if getDomain(gameData, unit.type, unitData) == "Naval"]
 
             if navBat.attWin:
                 encircled = []
-                navRetreatMsg = formatRetreatMessage(retreatShips(gameData, defShips))
+                navRetreatMsg = formatRetreatMessage(retreatShips(gameData, defShips, unitData))
 
                 for unit in attShips:
                     gameData.updateUnit(unit.name, {"location": target.name})
@@ -393,8 +394,8 @@ def attack(gameData: GameData, nation: Nation, target: Territory | Sea, units: l
 
     # ---------- Ground-based air combat ----------
     if isinstance(target, Territory):
-        offensive = groundBasedAirDefense(gameData, attDivs, defDivs, navBat is None)
-        defensive = groundBasedAirDefense(gameData, defDivs, attDivs, False)
+        offensive = groundBasedAirDefense(gameData, attDivs, defDivs, navBat is None, unitData["Air"], unitData)
+        defensive = groundBasedAirDefense(gameData, defDivs, attDivs, False, unitData["Air"], unitData)
 
         if offensive or defensive:
             cas = executeBattleCas(gameData, attDivs, defDivs, offensive | defensive)
@@ -402,7 +403,7 @@ def attack(gameData: GameData, nation: Nation, target: Territory | Sea, units: l
             battleLog["Casualties"]["Ground-Based Air Defense"] = byNation
             addToAllCas(allcas, byNation)
 
-        offensive = groundBombardment(gameData, attDivs, defDivs, navBat is None)
+        offensive = groundBombardment(gameData, attDivs, defDivs, navBat is None, unitData)
 
         if offensive:
             executeBattleCas(gameData, attDivs, defDivs, offensive)
@@ -410,7 +411,7 @@ def attack(gameData: GameData, nation: Nation, target: Territory | Sea, units: l
             battleLog["Casualties"]["Offensive Ground Bombardment"] = byNation
             addToAllCas(allcas, byNation)
 
-        defensive = groundBombardment(gameData, defDivs, attDivs, navBat is None)
+        defensive = groundBombardment(gameData, defDivs, attDivs, navBat is None, unitData)
 
         if defensive:
             executeBattleCas(gameData, attDivs, defDivs, defensive)
@@ -421,8 +422,8 @@ def attack(gameData: GameData, nation: Nation, target: Territory | Sea, units: l
     # ---------- Land battle ----------
     retreatmsg = ""
 
-    if isinstance(target, Territory) and "Ground" in attdomains and strength(gameData, attDivs, "att") > 0:
-        battle = landBattle(gameData, target, nation, attDivs, defDivs)
+    if isinstance(target, Territory) and "Ground" in attdomains and strength(gameData, attDivs, "att", unitData) > 0:
+        battle = landBattle(gameData, target, nation, attDivs, defDivs, unitData)
 
         byType = groupUnitsByType(battle.attCas)
         battleLog["Casualties"]["Land Battle"] = {nation.name: byType}
@@ -445,9 +446,9 @@ def attack(gameData: GameData, nation: Nation, target: Territory | Sea, units: l
         landBattleAftermath(gameData, nation, target, battle)
 
         if battle.attWin:
-            retreatmsg = retreatForces(gameData, target, defDivs)
+            retreatmsg = retreatForces(gameData, target, defDivs, unitData)
 
-        annexmsg = generateAnnexMessage(gameData, nation, defN)
+        annexmsg = generateAnnexMessage(gameData, nation, defN, unitData)
 
         participants = set(allcas.keys())
         participants.add(defN.name)
@@ -478,16 +479,16 @@ def attack(gameData: GameData, nation: Nation, target: Territory | Sea, units: l
     currentTime = gameData.gameTime()
 
     for unit in attDivs:
-        domain = getDomain(gameData, unit.type)
+        domain = getDomain(gameData, unit.type, unitData)
 
         if domain != "Air":
             terrain = target.terrain if isinstance(target, Territory) else 0
-            cooldown = findCooldown(gameData, unit.type, terrain, nation.stability) * cooldownMultiplier["Attacking"]
+            cooldown = findCooldown(gameData, unit.type, terrain, nation.stability, unitData) * cooldownMultiplier["Attacking"]
         else:
             location = station(gameData, unit)
             if isinstance(location, Unit):
                 location = station(gameData, location)
-            cooldown = planeCooldown(gameData, unit.type, location, target, True) * cooldownMultiplier["Attacking"]
+            cooldown = planeCooldown(gameData, unit.type, location, target, True, unitData) * cooldownMultiplier["Attacking"]
 
         tiredUntil = currentTime + cooldown
         unit.tiredUntil = tiredUntil
@@ -503,12 +504,12 @@ def attack(gameData: GameData, nation: Nation, target: Territory | Sea, units: l
         "navalRetreat": navRetreatMsg
     }
 
-def retreatForces(gameData, tiq: Territory, divs: list[Unit]) -> str:
-    air = [unit for unit in divs if getDomain(gameData, unit.type) == "Air"]
-    ground = [unit for unit in divs if getDomain(gameData, unit.type) == "Ground"]
+def retreatForces(gameData, tiq: Territory, divs: list[Unit], unitData=None) -> str:
+    air = [unit for unit in divs if getDomain(gameData, unit.type, unitData) == "Air"]
+    ground = [unit for unit in divs if getDomain(gameData, unit.type, unitData) == "Ground"]
 
-    msg = retreatGroundForces(gameData, tiq, ground)
-    retreatedAir = retreatAircraft(gameData, air)
+    msg = retreatGroundForces(gameData, tiq, ground, unitData)
+    retreatedAir = retreatAircraft(gameData, air, unitData)
 
     if retreatedAir:
         msg += "\nYour aircraft retreated as such:\n" + formatRetreatMessage(retreatedAir)
@@ -543,7 +544,7 @@ class FlightResponse:
     def __str__(self):
         return f"__AIRCRAFT INTERCEPTION__\nFlown Over: {self.flownOver}\nLosses By Tile: {self.lossesByTile}\nNations Involved: {self.allNationsInvolved}\nEnemy Nations Involved: {self.enemyNationsInvolved}"
 
-def aircraftInterception(gameData, nation: Nation, planes: list[Unit], dest: Territory | Sea, includeLast: bool) -> FlightResponse | None:
+def aircraftInterception(gameData, nation: Nation, planes: list[Unit], dest: Territory | Sea, includeLast: bool, unitData=None) -> FlightResponse | None:
     if not planes:
         return None
 
@@ -563,7 +564,7 @@ def aircraftInterception(gameData, nation: Nation, planes: list[Unit], dest: Ter
     enemyNationsInvolved = set()
 
     for start, attackingPlanes in byTerr.items():
-        path = shortestPathFinder(gameData, start, dest, inOneNation=False, includeSeas=True)
+        path = shortestPathFinder(gameData, start, dest, inOneNation=False, includeSeas=True, unitData=unitData)
         if path is None:
             continue
 
@@ -594,7 +595,7 @@ def aircraftInterception(gameData, nation: Nation, planes: list[Unit], dest: Ter
             if not enemyUnits:
                 continue
 
-            battle = fighterBattle(gameData, attackingPlanes, enemyUnits)
+            battle = fighterBattle(gameData, attackingPlanes, enemyUnits, unitData)
             cas = executeBattleCas(gameData, attackingPlanes, enemyUnits, battle)
             if tile in lossesByTile:
                 addToDict(lossesByTile[tile], cas)
@@ -602,7 +603,7 @@ def aircraftInterception(gameData, nation: Nation, planes: list[Unit], dest: Ter
                 lossesByTile[tile] = cas
 
             previousTile = path[index - 1]
-            battle = groundBasedAirDefense(gameData, attackingPlanes, enemyUnits, isinstance(previousTile, Sea))
+            battle = groundBasedAirDefense(gameData, attackingPlanes, enemyUnits, isinstance(previousTile, Sea), unitData["Air"] if unitData else None, unitData)
             cas = executeBattleCas(gameData, attackingPlanes, enemyUnits, battle)
             if tile in lossesByTile:
                 addToDict(lossesByTile[tile], cas)
@@ -613,7 +614,7 @@ def aircraftInterception(gameData, nation: Nation, planes: list[Unit], dest: Ter
 
     return FlightResponse(flownOver, lossesByTile, allNationsInvolved, enemyNationsInvolved)
 
-def groundBombardment(gameData, attDivs: list[Unit], defDivs: list[Unit], includeAttackers: bool) -> dict[Unit, int]:
+def groundBombardment(gameData, attDivs: list[Unit], defDivs: list[Unit], includeAttackers: bool, unitData=None) -> dict[Unit, int]:
     casualties = {}
     remainingQuantity = {unit: unit.quantity for unit in defDivs}
     attBombers = {"Bomber": [], "Attacker": []}
@@ -630,12 +631,12 @@ def groundBombardment(gameData, attDivs: list[Unit], defDivs: list[Unit], includ
     priority = {}
 
     for unit in defDivs:
-        if getDomain(gameData, unit.type) == "Ground":
+        if getDomain(gameData, unit.type, unitData) == "Ground":
             priority.setdefault(unit.type, []).append(unit)
 
     priority = sorted(
         priority.items(),
-        key=lambda item: getUnitData(gameData, item[0])[1]["Strength"]["Attack"] + getUnitData(gameData, item[0])[1]["Strength"]["Defense"],
+        key=lambda item: getUnitData(gameData, item[0], unitData)[1]["Strength"]["Attack"] + getUnitData(gameData, item[0], unitData)[1]["Strength"]["Defense"],
         reverse=True
     )
 
@@ -643,20 +644,20 @@ def groundBombardment(gameData, attDivs: list[Unit], defDivs: list[Unit], includ
         if not bombers:
             continue
 
-        bomberData = getUnitData(gameData, bomberType)[1]
+        bomberData = getUnitData(gameData, bomberType, unitData)[1]
         limit = bomberData["Bombing"]["Limit"] * len(bombers)
         divsKilled = 0
 
         for unitType, targetUnits in priority:
-            unitData = getUnitData(gameData, unitType)[1]
+            targetUnitData = getUnitData(gameData, unitType, unitData)[1]
 
             for unit in targetUnits:
                 if divsKilled >= limit:
                     break
 
-                canKill = bomberData["Bombing"]["Strength"] * len(bombers) * remainingQuantity[unit] / unitData["Each"]
-                killed = round(min(canKill, limit - divsKilled) * unitData["Each"])
-                divsKilled += killed / unitData["Each"]
+                canKill = bomberData["Bombing"]["Strength"] * len(bombers) * remainingQuantity[unit] / targetUnitData["Each"]
+                killed = round(min(canKill, limit - divsKilled) * targetUnitData["Each"])
+                divsKilled += killed / targetUnitData["Each"]
                 casualties[unit] = casualties.get(unit, 0) + killed
                 remainingQuantity[unit] -= killed
 
@@ -665,20 +666,20 @@ def groundBombardment(gameData, attDivs: list[Unit], defDivs: list[Unit], includ
 
     return casualties
 
-def fighterBattle(gameData, attDivs: list[Unit], defDivs: list[Unit]) -> set[Unit]:
+def fighterBattle(gameData, attDivs: list[Unit], defDivs: list[Unit], unitData=None) -> set[Unit]:
     attplanes = {"Fighters": [], "Others": []}
     defplanes = {"Fighters": [], "Others": []}
 
     for unit in attDivs:
         if unit.type == "Fighter":
             attplanes["Fighters"] += divideUnit(unit)
-        elif getDomain(gameData, unit.type) == "Air":
+        elif getDomain(gameData, unit.type, unitData) == "Air":
             attplanes["Others"] += divideUnit(unit)
 
     for unit in defDivs:
         if unit.type == "Fighter":
             defplanes["Fighters"] += divideUnit(unit)
-        elif getDomain(gameData, unit.type) == "Air":
+        elif getDomain(gameData, unit.type, unitData) == "Air":
             defplanes["Others"] += divideUnit(unit)
 
     destroyed = set()
@@ -709,7 +710,7 @@ def fighterBattle(gameData, attDivs: list[Unit], defDivs: list[Unit]) -> set[Uni
 
     return destroyed
 
-def navalAirRaid(gameData, attDivs: list[Unit], defDivs: list[Unit], includeBombers: bool) -> set[Unit]:
+def navalAirRaid(gameData, attDivs: list[Unit], defDivs: list[Unit], includeBombers: bool, unitData=None) -> set[Unit]:
     attplanes = []
     defSurfaceShips = []
     spy = False
@@ -721,10 +722,10 @@ def navalAirRaid(gameData, attDivs: list[Unit], defDivs: list[Unit], includeBomb
             spy = True
 
     for unit in defDivs:
-        if getDomain(gameData, unit.type) == "Naval" and unit.type != "Submarine":
+        if getDomain(gameData, unit.type, unitData) == "Naval" and unit.type != "Submarine":
             defSurfaceShips += divideUnit(unit)
 
-    withAntiAir = {unit for unit in defSurfaceShips if antiAirDef(gameData, unit) > 0}
+    withAntiAir = {unit for unit in defSurfaceShips if antiAirDef(gameData, unit, unitData) > 0}
     targetted = set()
     destroyed = set()
     repelled = set()
@@ -740,26 +741,29 @@ def navalAirRaid(gameData, attDivs: list[Unit], defDivs: list[Unit], includeBomb
 
         target = random.choice(list(targets))
 
-        if random.random() * 100 < antiAirDef(gameData, target):
+        if random.random() * 100 < antiAirDef(gameData, target, unitData):
             repelled.add(plane)
-        elif random.random() * 100 < getUnitData(gameData, plane.type)[1]["Accuracy"]["Naval"]:
+        elif random.random() * 100 < getUnitData(gameData, plane.type, unitData)[1]["Accuracy"]["Naval"]:
             destroyed.add(target)
 
         targetted.add(target)
 
     return destroyed | repelled
 
-def groundBasedAirDefense(gameData, attDivs: list[Unit], defDivs: list[Unit], includeNaval: bool) -> set[Unit]:
+def groundBasedAirDefense(gameData, attDivs: list[Unit], defDivs: list[Unit], includeNaval: bool, airData=None, unitData=None) -> set[Unit]:
     attPlanes = []
     for unit in attDivs:
-        if getDomain(gameData, unit.type) == "Air":
+        if getDomain(gameData, unit.type, unitData) == "Air":
             attPlanes += divideUnit(unit)
 
-    totalaa = sum(antiAirDef(gameData, unit) for unit in defDivs if getDomain(gameData, unit.type) == "Ground" or (includeNaval and getDomain(gameData, unit.type) == "Naval"))
+    totalaa = sum(antiAirDef(gameData, unit, unitData) for unit in defDivs if getDomain(gameData, unit.type, unitData) == "Ground" or (includeNaval and getDomain(gameData, unit.type, unitData) == "Naval"))
     if totalaa == 0 or not attPlanes:
         return set()
 
-    airData = gameData.getDefaultGameData()["Units"]["Air"]
+    if not airData:
+      if not unitData:
+        unitData = gameData.getDefaultGameData()["Units"]
+      airData = unitData["Air"]
     vulnerability = {unitType: data["Vulnerability"] for unitType, data in airData.items()}
     chance = min(totalaa / len(attPlanes), 0.95 / max(vulnerability.values()))
 
@@ -770,7 +774,7 @@ def groundBasedAirDefense(gameData, attDivs: list[Unit], defDivs: list[Unit], in
 
     return shotdown
 
-def retreatAircraft(gameData, aircraft: list[Unit]) -> dict:
+def retreatAircraft(gameData, aircraft: list[Unit], unitData=None) -> dict:
     byTile = {}
     for unit in aircraft:
         nation = gameData.getNation(unit.nation)
@@ -779,15 +783,15 @@ def retreatAircraft(gameData, aircraft: list[Unit]) -> dict:
 
         for territory in gameData.getAllTerr():
             if ("Airport" in territory.buildings or "Airstrip" in territory.buildings) and territory.nation in canEnter:
-                if inRange(gameData, unit, territory, False):
+                if inRange(gameData, unit, territory, False, unitData):
                     possible.add(territory)
 
         for carrier in gameData.getUnits():
             if carrier.type == "Aircraft Carrier":
                 if carrier.nation == nation.name or (carrier.nation in canEnter and getSettings(gameData, nation)["Allow trusted carrier retreats"]):
-                    remainingCapacity = getCapacity(gameData, carrier) - findWeight(gameData, getLoad(gameData, carrier))
-                    if remainingCapacity >= findWeight(gameData, [unit]):
-                        if inRange(gameData, unit, station(gameData, carrier), False):
+                    remainingCapacity = getCapacity(gameData, carrier, unitData) - findWeight(gameData, getLoad(gameData, carrier), unitData)
+                    if remainingCapacity >= findWeight(gameData, [unit], unitData):
+                        if inRange(gameData, unit, station(gameData, carrier), False, unitData):
                             possible.add(carrier)
 
         if not possible:
@@ -800,7 +804,7 @@ def retreatAircraft(gameData, aircraft: list[Unit]) -> dict:
 
     return byTile
 
-def navalBattle(gameData, attNation: Nation, attDivs: list[Unit], defDivs: list[Unit]) -> NavalBattleResponse:
+def navalBattle(gameData, attNation: Nation, attDivs: list[Unit], defDivs: list[Unit], unitData=None) -> NavalBattleResponse:
     attforce = {"Destroyer": [], "Battleship": [], "Submarine": [], "Other Ships": []}
     defforce = {"Destroyer": [], "Battleship": [], "Submarine": [], "Other Ships": []}
     logs = []
@@ -808,13 +812,13 @@ def navalBattle(gameData, attNation: Nation, attDivs: list[Unit], defDivs: list[
     for unit in attDivs:
         if unit.type in attforce:
             attforce[unit.type] += divideUnit(unit)
-        elif getDomain(gameData, unit.type) == "Naval":
+        elif getDomain(gameData, unit.type, unitData) == "Naval":
             attforce["Other Ships"] += divideUnit(unit)
 
     for unit in defDivs:
         if unit.type in defforce:
             defforce[unit.type] += divideUnit(unit)
-        elif getDomain(gameData, unit.type) == "Naval":
+        elif getDomain(gameData, unit.type, unitData) == "Naval":
             defforce["Other Ships"] += divideUnit(unit)
 
     usedDestroyers = set()
@@ -863,7 +867,7 @@ def navalBattle(gameData, attNation: Nation, attDivs: list[Unit], defDivs: list[
     logs.append(f"Attacking submarines sink {attLostMsg}")
     logs.append(f"Defending submarines sink {defLostMsg}")
 
-    navalPower = getNavalPower(gameData)
+    navalPower = getNavalPower(gameData, unitData["Naval"] if unitData else None)
 
     attChance = len(attforce["Battleship"]) * navalPower["Battleship"] + len(attforce["Destroyer"]) * navalPower["Destroyer"]
     defChance = len(defforce["Battleship"]) * navalPower["Battleship"] + len(defforce["Destroyer"]) * navalPower["Destroyer"]
@@ -919,7 +923,7 @@ def navalBattle(gameData, attNation: Nation, attDivs: list[Unit], defDivs: list[
 
     return NavalBattleResponse(attChance != 0, destroyedShips, logs)
 
-def retreatShips(gameData, ships: list[Unit]) -> dict[str, list[str]]:
+def retreatShips(gameData, ships: list[Unit], unitData=None) -> dict[str, list[str]]:
     byTile = {}
     for unit in ships:
         location = station(gameData, unit)
@@ -927,17 +931,17 @@ def retreatShips(gameData, ships: list[Unit]) -> dict[str, list[str]]:
         canEnter = nation.canEnter()
         possible = []
 
-        for border in getAllBorders(gameData, location):
+        for border in getAllBorders(gameData, location, unitData):
             try:
                 territory = gameData.getTerritory(border)
                 if territory.coast:
-                    coastOccupant = findCoastOccupant(gameData, territory)
+                    coastOccupant = findCoastOccupant(gameData, territory, unitData)
                     if coastOccupant == "None" or coastOccupant.name in canEnter:
                         possible.append(territory)
             except ValueError:
                 try:
                     sea = gameData.getSea(border)
-                    seaOwner = findOwner(gameData, sea)
+                    seaOwner = findOwner(gameData, sea, unitData)
                     if seaOwner == "None" or seaOwner in canEnter:
                         possible.append(sea)
                 except ValueError:
@@ -953,7 +957,7 @@ def retreatShips(gameData, ships: list[Unit]) -> dict[str, list[str]]:
 
     return byTile
 
-def landBattle(gameData, tiq: Territory, niq: Nation, attDivs: list[Unit], defDivs: list[Unit]) -> LandBattleResponse:
+def landBattle(gameData, tiq: Territory, niq: Nation, attDivs: list[Unit], defDivs: list[Unit], unitData=None) -> LandBattleResponse:
     defDivsByNation = {}
     for unit in defDivs:
         defDivsByNation.setdefault(unit.nation, []).append(unit)
@@ -961,8 +965,8 @@ def landBattle(gameData, tiq: Territory, niq: Nation, attDivs: list[Unit], defDi
     attInitial = {unit: unit.quantity for unit in attDivs}
     defInitial = {unit: unit.quantity for unit in defDivs}
 
-    attDivNum = sum(unit.quantity / getUnitData(gameData, unit.type)[1]["Each"] for unit in attDivs)
-    defDivNum = sum(unit.quantity / getUnitData(gameData, unit.type)[1]["Each"] for unit in defDivs)
+    attDivNum = sum(unit.quantity / getUnitData(gameData, unit.type, unitData)[1]["Each"] for unit in attDivs)
+    defDivNum = sum(unit.quantity / getUnitData(gameData, unit.type, unitData)[1]["Each"] for unit in defDivs)
     skirmish = attDivNum < defDivNum * 0.25
 
     defStrenByNation = {}
@@ -971,12 +975,12 @@ def landBattle(gameData, tiq: Territory, niq: Nation, attDivs: list[Unit], defDi
         reqFuel = []
         dontreqFuel = []
         for unit in units:
-            if findFuelRequired(gameData, [unit], "defense") != 0:
+            if findFuelRequired(gameData, [unit], "defense", unitData) != 0:
                 reqFuel.append(unit)
             else:
                 dontreqFuel.append(unit)
 
-        dFuelReq = 0 if skirmish else findFuelRequired(gameData, reqFuel, "defense")
+        dFuelReq = 0 if skirmish else findFuelRequired(gameData, reqFuel, "defense", unitData)
         defenderNation = gameData.getNation(nationName)
         inventory = defenderNation.inventory
         fuel = inventory.get("Fuel", 0)
@@ -990,7 +994,7 @@ def landBattle(gameData, tiq: Territory, niq: Nation, attDivs: list[Unit], defDi
             inventory["Fuel"] = fuel - dFuelReq
 
         gameData.updateNation(defenderNation.name, {"inventory": inventory})
-        defStrenByNation[nationName] = strength(gameData, dontreqFuel, "def") + strength(gameData, reqFuel, "def") * dFuelMult
+        defStrenByNation[nationName] = strength(gameData, dontreqFuel, "def", unitData) + strength(gameData, reqFuel, "def", unitData) * dFuelMult
         # defStrenByNation[nationName] *= ide[defenderNation.ideology].defBoost
 
     tiq.devastation += (attDivNum + defDivNum) * devastationRatio()
@@ -998,7 +1002,7 @@ def landBattle(gameData, tiq: Territory, niq: Nation, attDivs: list[Unit], defDi
     if "Fortress" in tiq.buildings:
         dStren *= 2
 
-    aStren = strength(gameData, attDivs, "att")
+    aStren = strength(gameData, attDivs, "att", unitData)
     aChance = aStren ** 2  # * ide[niq.ideology].attBoost
     dChance = dStren ** 2 * tiq.terrain ** 0.25
 
@@ -1010,7 +1014,7 @@ def landBattle(gameData, tiq: Territory, niq: Nation, attDivs: list[Unit], defDi
     else:
         attWin = False
 
-    casualties = determineCasualties(gameData, tiq, [u for u in attDivs if getDomain(gameData, u.type) == "Ground"], [u for u in defDivs if getDomain(gameData, u.type) == "Ground"], aStren, dStren)
+    casualties = determineCasualties(gameData, tiq, [u for u in attDivs if getDomain(gameData, u.type, unitData) == "Ground"], [u for u in defDivs if getDomain(gameData, u.type, unitData) == "Ground"], aStren, dStren, unitData)
 
     aLostAll = all(unit.quantity - casualties["acas"].get(unit, 0) <= 0 for unit in casualties["acas"])
     dLostAll = all(
@@ -1075,7 +1079,7 @@ def landBattleAftermath(gameData: GameData, niq: Nation, tiq: Territory, battle:
 
         gameData.updateTerritory(tiq.name, {"nation": tiq.nation, "integrated": tiq.integrated})
 
-def determineCasualties(gameData, tiq: Territory, attDivs: list[Unit], defDivs: list[Unit], aStren: float, dStren: float) -> dict:
+def determineCasualties(gameData, tiq: Territory, attDivs: list[Unit], defDivs: list[Unit], aStren: float, dStren: float, unitData=None) -> dict:
     median = min(aStren, dStren) / 2
     stdev = median / 3
 
@@ -1094,7 +1098,7 @@ def determineCasualties(gameData, tiq: Territory, attDivs: list[Unit], defDivs: 
             cas -= saved
             asaved += saved
         cas = max(0, cas)
-        if unit.quantity - cas < getUnitData(gameData, unit.type)[1]["Minimum"]:
+        if unit.quantity - cas < getUnitData(gameData, unit.type, unitData)[1]["Minimum"]:
             cas = unit.quantity
         cas = round(cas)
         acas[unit] = cas
@@ -1109,13 +1113,13 @@ def determineCasualties(gameData, tiq: Territory, attDivs: list[Unit], defDivs: 
             cas -= saved
             dsaved += saved
         cas = max(0, cas)
-        if unit.quantity - cas < getUnitData(gameData, unit.type)[1]["Minimum"]:
+        if unit.quantity - cas < getUnitData(gameData, unit.type, unitData)[1]["Minimum"]:
             cas = unit.quantity
         cas = round(cas)
         dcas.setdefault(unit.nation, {})[unit] = cas
     return {"acas": acas, "dcas": dcas, "asaved": asaved, "dsaved": dsaved}
 
-def retreatGroundForces(gameData, tiq: Territory, divs: list[Unit]) -> str:
+def retreatGroundForces(gameData, tiq: Territory, divs: list[Unit], unitData=None) -> str:
     retreat = ""
     if not divs:
         return ""
@@ -1128,7 +1132,7 @@ def retreatGroundForces(gameData, tiq: Territory, divs: list[Unit]) -> str:
         nation = gameData.getNation(unit.nation)
         unit.active = True
         currentTime = gameData.gameTime()
-        retreatCooldown = (findCooldown(gameData, unit.type, 1, nation.stability) + findCooldown(gameData, unit.type, 5, nation.stability)) / 20
+        retreatCooldown = (findCooldown(gameData, unit.type, 1, nation.stability, unitData) + findCooldown(gameData, unit.type, 5, nation.stability, unitData)) / 20
 
         if currentTime + retreatCooldown < unit.tiredUntil:
             unit.tiredUntil = currentTime + retreatCooldown
@@ -1153,7 +1157,7 @@ def retreatGroundForces(gameData, tiq: Territory, divs: list[Unit]) -> str:
             retreated = False
 
             for carrier in carriers:
-                if findWeight(gameData, getLoad(gameData, carrier)) + findWeight(gameData, [unit]) < getCapacity(gameData, carrier):
+                if findWeight(gameData, getLoad(gameData, carrier), unitData) + findWeight(gameData, [unit], unitData) < getCapacity(gameData, carrier, unitData):
                     unit.location = carrier.name
                     retreats.setdefault(f"{carrier.type} `{carrier.name}`", []).append(unit.name)
                     retreated = True
@@ -1161,12 +1165,12 @@ def retreatGroundForces(gameData, tiq: Territory, divs: list[Unit]) -> str:
 
             if not retreated:
                 for carrier in carriers:
-                    remainingWeight = getCapacity(gameData, carrier) - findWeight(gameData, getLoad(gameData, carrier))
-                    unitData = getUnitData(gameData, unit.type)[1]
-                    unitWeight = unitData.get("Weight", 0)
-                    quantity = int(remainingWeight / unitWeight * unitData["Each"]) if unitWeight > 0 else 0
+                    remainingWeight = getCapacity(gameData, carrier, unitData) - findWeight(gameData, getLoad(gameData, carrier), unitData)
+                    unitStats = getUnitData(gameData, unit.type, unitData)[1]
+                    unitWeight = unitStats.get("Weight", 0)
+                    quantity = int(remainingWeight / unitWeight * unitStats["Each"]) if unitWeight > 0 else 0
 
-                    if quantity >= unitData["Minimum"]:
+                    if quantity >= unitStats["Minimum"]:
                         didntMakeIt[unit] = unit.quantity - quantity
                         unit.quantity = quantity
                         unit.location = carrier.name
@@ -1216,11 +1220,11 @@ def formatEncirclementMessage(unitsEncircled: list[Unit]):
     d[i] = i.quantity
   return formatIndividualCas(d, False)
 
-def generateAnnexMessage(gameData, niq: Nation, defN: Nation):
+def generateAnnexMessage(gameData, niq: Nation, defN: Nation, unitData=None):
     if gameData.getNationTerr(defN.name):
         return ""
 
-    if not dead(gameData, defN):
+    if not dead(gameData, defN, unitData):
         return annexAtSea(defN.name)
 
     tryAnnex = annex(niq, defN)

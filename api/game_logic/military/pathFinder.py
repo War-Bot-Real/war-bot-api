@@ -4,7 +4,7 @@ from itertools import count
 from api.models import Territory, Sea
 from api.game_logic.military.shared import getAllBorders, calcDistance
 
-def shortestPathFinder(gameData, start: Territory | Sea, end: Territory | Sea, inOneNation: bool = True, railroadsOnly: bool = False, includesTrusted: bool = True, includeSeas: bool = False) -> list[Territory | Sea] | None:
+def shortestPathFinder(gameData, start: Territory | Sea, end: Territory | Sea, inOneNation: bool = True, railroadsOnly: bool = False, includesTrusted: bool = True, includeSeas: bool = False, unitData=None) -> list[Territory | Sea] | None:
     if isinstance(start, str):
         raise Exception(f"shortestPathFinder start is invalid: {start}")
     if isinstance(end, str):
@@ -32,7 +32,7 @@ def shortestPathFinder(gameData, start: Territory | Sea, end: Territory | Sea, i
         if railroadsOnly:
             neighbor_names = current.rails
         elif includeSeas:
-            neighbor_names = getAllBorders(gameData, current)
+            neighbor_names = getAllBorders(gameData, current, unitData)
         else:
             neighbor_names = current.bordering
 
