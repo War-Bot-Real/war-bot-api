@@ -82,7 +82,11 @@ def getBordersTerr(name: str):
     if not res.data:
         raise HTTPException(status_code=404, detail="No territory found")
     
-    return res.data[0]  
+    data = []
+    for i in res.data[0]['bordering']:
+      data.append({"Name": i, "Nation": getTerr(i)["nation"]})
+    
+    return data
       
 @router.get("/borders/nation/{name}")
 def getBordersNat(name: str):
