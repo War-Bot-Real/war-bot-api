@@ -504,6 +504,10 @@ def readMessage(category: str, user=Depends(get_current_user)):
 
     return nation.last
 
+@router.get("/gametime")
+def gameTime():
+  return gameData.gameTime()
+
 @router.get("/wars")
 def currentWars():
     wars = gameData.getWars()
