@@ -84,7 +84,8 @@ def getBordersTerr(name: str):
     
     data = []
     for i in res.data[0]['bordering']:
-      data.append({"Name": i, "Nation": getTerr(i)["nation"]})
+      nation = getTerr(i)['nation']
+      data.append({"Name": i, "Nation": nation, "NationFlag": gameData.getNation(nation).flag})
     
     return data
       
@@ -92,16 +93,13 @@ def getBordersTerr(name: str):
 def getBordersNat(name: str):
   terrlist = getNationTerr(name)
   
-  borders = set()
+  borders = []
   for i in terrlist:
-    borders.update(getBordersTerr(i.name)["bordering"])
+    for t in getBordersTerr(i['name']):
+      if t["Nation"].lower() != name.lower() and t["Name"] not in [b["Name"] for b in borders]:
+        borders.append(t)
   
-  borders = borders - set([i.name for i in terrlist])
-  
-  data = []
-  for i in borders:
-    data.append({"Name": i, "Nation": getTerr(i)["nation"]})
-  return data
+  return borders
 
 @router.get("/distance/{from_territory}/{to_territory}")
 def getDistance(from_territory: str, to_territory: str):
