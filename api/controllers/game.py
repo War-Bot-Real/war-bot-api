@@ -197,13 +197,10 @@ def getAllMaps():
     res = supabase.table("maps").select("*").execute()
     return res.data
   
-@router.get("/map/{map}/image/{shrink}")
-def getMapImage(map: str, shrink: bool):
+@router.get("/map/{map}/image")
+def getMapImage(map: str):
     try:
-        if shrink:
-          res = supabase.storage.from_("maps").create_signed_url(f"{map}/shrink.png", expires_in=60)
-        else:
-          res = supabase.storage.from_("maps").create_signed_url(f"{map}/map.png", expires_in=60)
+        res = supabase.storage.from_("maps").create_signed_url(f"{map}/map.png", expires_in=60)
           
         return {"url": res}
     except Exception as e:
