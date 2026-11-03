@@ -122,6 +122,29 @@ def findFuelRequired(gameData, unitlist: list[Unit], action: str, unitData=None)
 
     return fuelRequired
 
+def planeFuelReq(gameData, unitlist: list[Unit], destination, roundTrip: bool, unitData=None) -> float:
+    fuelRequired = 0.0
+    for unit in unitlist:
+        start = station(gameData, unit)
+        if isinstance(start, Unit):
+            start = station(gameData, start)
+        if start is None:
+            raise ValueError(f"Could not determine the aircraft's current location.")
+
+        data = getUnitData(gameData, unit.type, unitData)[1]
+        distance = pxToKm(gameData, calcDistance(start, destination))
+        if roundTrip:
+            distance *= 2
+        fuelRequired += (
+            data["Fuel"]["Movement"]
+            * unit.quantity
+            * distance
+            / data["Range"]
+            / data["Each"]
+        )
+
+    return fuelRequired
+
 def getLoad(gameData, unit: Unit) -> list[Unit]:
     return [loadedUnit for loadedUnit in gameData.getUnits() if loadedUnit.location == unit.name]
 
