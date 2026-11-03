@@ -2,9 +2,9 @@ import random
 from api.models import Territory, Sea, Nation, Unit, NavalBattleResponse, LandBattleResponse
 from api.game_logic.military.management import getUnitData
 from api.game_logic.shared import formatTime, findquan, addToDict
-from api.game_logic.military.shared import getDomain, canTakeoff, inRange, findCoastOccupant, findFuelRequired, findOwner, getAllBorders, station, antiAirDef, getNavalPower, devastationRatio, convertIntToBattleId, findCooldown, cooldownMultiplier, getCapacity, getLoad, findWeight, dead
+from api.game_logic.military.shared import getDomain, canTakeoff, inRange, findCoastOccupant, findFuelRequired, findOwner, getAllBorders, station, antiAirDef, getNavalPower, devastationRatio, convertIntToBattleId, findCooldown, cooldownMultiplier, getCapacity, getLoad, findWeight, dead, planeCooldown
 from api.game_logic.shared import formatList, formatNum, getSettings
-from api.game_logic.military.pathFinder import shortestPathFinder, calcDistance
+from api.game_logic.military.pathFinder import shortestPathFinder
 from api.game_logic.messages.military import formatRetreatMessage, formatIndividualCas, annexAtSea, annexAward, annexFailed, annexNews, annexSuccess, generateMessage
 from api.game_logic.annexation import annex
 from api.repositories.gameData import GameData
@@ -103,21 +103,6 @@ def mergeCasualties(gameData, casualties: set[Unit] | dict[Unit, int], troop_lis
             losses[unit] = losses.get(unit, 0) + count
 
     return losses
-
-def planeCooldown(gameData, unitType: str, startTerr: Territory | Sea | Unit, endTerr: Territory | Sea | Unit, roundTrip: bool, unitData=None) -> float:
-    mapName = gameData.getMapName()
-    if isinstance(startTerr, Unit):
-        startTerr = station(gameData, startTerr)
-    if isinstance(endTerr, Unit):
-        endTerr = station(gameData, endTerr)
-
-    dist = max(5, calcDistance(startTerr, endTerr))
-    if roundTrip:
-        dist *= 2
-
-    cooldown = getUnitData(gameData, unitType, unitData)[1]["Cooldown"]
-    pxToKm = gameData.getMapData(mapName)["pxToKm"]
-    return cooldown * pxToKm * dist / 100
 
 def attack(gameData: GameData, nation: Nation, target: Territory | Sea, units: list[Unit]):
     unitData = gameData.getDefaultGameData()["Units"]

@@ -1,5 +1,5 @@
 from api.game_logic.shared import calcDistance, pxToKm, quadify
-from api.models import Territory, Unit
+from api.models import Territory, Unit, Sea
 
 def getUnitData(gameData, unittype, unitData = None):
   if not unitData:
@@ -197,6 +197,21 @@ def findCooldown(gameData, unitType: str, terrain: int | str, stability: int | f
     exponent = data["Speed"]["Exponent"]
     divisor = data["Speed"]["Divisor"]
     return 1000 * (terrain + 3) ** exponent / divisor * stabEffect
+
+def planeCooldown(gameData, unitType: str, startTerr: Territory | Sea | Unit, endTerr: Territory | Sea | Unit, roundTrip: bool, unitData=None) -> float:
+    mapName = gameData.getMapName()
+    if isinstance(startTerr, Unit):
+        startTerr = station(gameData, startTerr)
+    if isinstance(endTerr, Unit):
+        endTerr = station(gameData, endTerr)
+
+    dist = max(5, calcDistance(startTerr, endTerr))
+    if roundTrip:
+        dist *= 2
+
+    cooldown = getUnitData(gameData, unitType, unitData)[1]["Cooldown"]
+    pxToKm = gameData.getMapData(mapName)["pxToKm"]
+    return cooldown * pxToKm * dist / 100
 
 def getCapacity(gameData, unit: Unit, unitData=None) -> float:
     return getUnitData(gameData, unit.type, unitData)[1].get("Capacity", 0)

@@ -17,6 +17,7 @@ from api.game_logic.admin import registerNation
 from api.game_logic.top import top
 from api.game_logic.give import giveMoney
 from api.game_logic.military.attack import attack as executeAttack
+from api.game_logic.military.movement import move as executeMove
 
 router = APIRouter()
 
@@ -648,3 +649,30 @@ def attack(request: AttackRequest, user=Depends(get_current_user)):
         "success": True,
         "result": result
     }
+
+class MoveRequest(BaseModel):
+    units: list[str]
+    target: str
+
+@router.post("/move")
+def move(request: MoveRequest, user=Depends(get_current_user)):
+    nation = checkNation(user)
+
+    validUnits = []
+    invalidUnits = []
+    for unitName in request.units:
+        unit = gameData.getUnit(unitName)
+        if not unit:
+            invalidUnits.append(unitName)
+        else:
+            validUnits.append(unit)
+
+    if invalidUnits:
+        raise HTTPException(status_code=404, detail=f"Invalid units: {', '.join(invalidUnits)}")
+
+    try:
+        result = executeMove(gameData, nation, validUnits, request.target)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return result

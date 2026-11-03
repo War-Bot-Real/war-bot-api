@@ -16,3 +16,4 @@ class RegisterRequest(BaseModel):
 def register(data: RegisterRequest, user=Depends(checkAdmin)):
     nation = gameData.getNation(data.nation)
     return registerNation(gameData, nation, data.ruler, data.channel)
+    
