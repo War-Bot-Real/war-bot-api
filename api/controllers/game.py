@@ -18,6 +18,7 @@ from api.game_logic.top import top
 from api.game_logic.give import giveMoney
 from api.game_logic.military.attack import attack as executeAttack
 from api.game_logic.military.movement import move as executeMove
+from api.game_logic.military.loading import load as executeLoad
 
 router = APIRouter()
 
@@ -676,3 +677,41 @@ def move(request: MoveRequest, user=Depends(get_current_user)):
         raise HTTPException(status_code=400, detail=str(e))
 
     return result
+
+class LoadRequest(BaseModel):
+    carrier: str
+    units: list[str]
+
+@router.post("/load")
+def load(request: LoadRequest, user=Depends(get_current_user)):
+    nation = checkNation(user)
+
+    carrier = gameData.getUnit(request.carrier)
+    if not carrier:
+        raise HTTPException(status_code=404, detail=f"Could not find transporter/aircraft carrier {request.carrier}")
+
+    invalidUnits, validUnits = [], []
+    for unitId in request.units:
+        unit = gameData.getUnit(unitId)
+        if not unit:
+            invalidUnits.append(unitId)
+        elif unit.nation != nation.name:
+            invalidUnits.append(unitId)
+        else:
+            validUnits.append(unit)
+
+    if invalidUnits:
+        raise HTTPException(status_code=404, detail=f"Invalid units: {', '.join(invalidUnits)}")
+
+    if not validUnits:
+        raise HTTPException(status_code=400, detail="Specify some divisions to load onto the carrier.")
+
+    if len({unit.name for unit in validUnits}) != len(validUnits):
+        raise HTTPException(status_code=400, detail="Duplicate units were specified.")
+
+    try:
+        result = executeLoad(gameData, nation, carrier, validUnits)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {"success": True, "result": result}
