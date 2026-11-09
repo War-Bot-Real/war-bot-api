@@ -254,24 +254,8 @@ def inventory(user = Depends(get_current_user)):
   
   res = supabase.table("nations").select("inventory").eq("name", user["nation"]).execute()
   return res.data[0]
-  
-@router.post("/income/collect")
-def collect(user=Depends(get_current_user)):
-    checkNation(user)
 
-    try:
-        nation = gameData.getNation(user["nation"])
-        result = collectIncome(gameData, nation)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    return {
-        "success": True,
-        "Nation": nation.name,
-        "result": result
-    }
-
-@router.get("/income/view")
+@router.get("/income")
 def income(user = Depends(get_current_user)):
     checkNation(user)
 
