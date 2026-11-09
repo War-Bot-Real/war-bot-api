@@ -1,4 +1,3 @@
-import requests
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 import secrets
@@ -9,7 +8,7 @@ from typing import Optional
 from api.auth import get_current_user
 from api.database import gameData, supabase
 from api.models import Nation, Territory
-from api.game_logic.income import collectIncome, calcRevByTerr
+from api.game_logic.income import collectIncome, calcRevByTerr, collectResources, getResourceFlow
 from api.game_logic.shop import buyItem
 from api.game_logic.military.management import deployUnit, getForces, mergeUnits, splitUnit, disbandUnit
 from api.game_logic.diplomacy import allyNation, declareWar
@@ -715,3 +714,27 @@ def load(request: LoadRequest, user=Depends(get_current_user)):
         raise HTTPException(status_code=400, detail=str(e))
 
     return {"success": True, "result": result}
+
+@router.post("/collect")
+def collect(user=Depends(get_current_user)):
+    nation = checkNation(user)
+
+    try:
+        result = collectIncome(gameData, nation)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {"success": True, "result": result}
+
+
+@router.get("/resflow")
+def resflow(user=Depends(get_current_user)):
+    nation = checkNation(user)
+
+    ideal = getResourceFlow(gameData, nation)
+    actual = collectResources(gameData, nation)
+
+    return {
+        "ideal": {resource: round(amount, 2) for resource, amount in ideal.items()},
+        "actual": {resource: round(amount, 2) for resource, amount in actual.items()}
+    }
