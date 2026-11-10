@@ -122,7 +122,7 @@ def collectResources(gameData, nation: Nation, elapsed: int = taxCooldown) -> di
 
     # Handle insufficient Coal.
     if "Coal" in res:
-        coalInventory = nation.resources.get("Coal", 0)
+        coalInventory = nation.inventory.get("Coal", 0)
         if res["Coal"] < 0 and abs(res["Coal"]) > coalInventory:
             overused = abs(res["Coal"]) - coalInventory
             res["Coal"] += overused
@@ -176,10 +176,10 @@ def collectIncome(gameData, nation: Nation):
 
     # Collect and apply resources.
     resourceChanges = collectResources(gameData, nation, elapsed)
-    resources = nation.resources.copy()
+    inventory = nation.inventory.copy()
 
     for resource, amount in resourceChanges.items():
-        resources[resource] = resources.get(resource, 0) + amount
+        inventory[resource] = inventory.get(resource, 0) + amount
 
     balance = round(nation.balance + revenue - owed, 2)
     last["tax"] = currentTime
@@ -190,7 +190,7 @@ def collectIncome(gameData, nation: Nation):
             "balance": balance,
             "stability": stability,
             "political_power": politicalPower,
-            "resources": resources,
+            "inventory": inventory,
             "last": last
         }
     )
