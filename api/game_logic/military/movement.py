@@ -5,7 +5,7 @@ from api.game_logic.military.shared import getDomain, getCapacity, station, find
 from api.game_logic.military.attack import aircraftInterception
 from api.game_logic.military.pathFinder import shortestPathFinder
 
-def move(gameData: GameData, nation, units: list[Unit], target: str):
+def executeMove(gameData: GameData, nation, units: list[Unit], target: str):
     if not units:
         raise ValueError("No units specified.")
 

@@ -1,6 +1,6 @@
 from api.game_logic.military.shared import getDomain, getCapacity, findWeight, getLoad, inRange, station, cooldownConstants, cooldownMultiplier
 
-def load(gameData, carrier, units):
+def executeLoad(gameData, carrier, units):
     if getCapacity(gameData, carrier) <= 0:
         raise ValueError(f"That's a {carrier.type.lower()}, not a transporter or aircraft carrier!")
 
@@ -52,3 +52,38 @@ def load(gameData, carrier, units):
         gameData.updateUnit(unit.name, {"location": carrier.name, "tiredUntil": tiredUntil})
 
     return f"Successfully loaded all units onto {carrier.type} `{carrier.name}`."
+
+def executeUnload(gameData, nation, carrier):
+    if carrier is None or getCapacity(gameData, carrier) == 0:
+        raise ValueError("That's not a valid transporter!")
+    if carrier.nation != nation.name:
+        raise ValueError("You don't own that transporter!")
+    
+    try:
+        territory = gameData.getTerritory(carrier.location)
+    except ValueError:
+        raise ValueError("Your transporter is currently at sea. Move it to a coastal province before unloading.")
+
+    if territory.nation not in nation.canEnter():
+        raise ValueError("That territory is held by a different nation. You must attack it!")
+
+    currentTime = gameData.gameTime()
+    if carrier.tiredUntil > currentTime:
+        remaining = carrier.tiredUntil - currentTime
+        raise ValueError(f"This transporter is currently on cooldown. You can unload in {remaining:.0f} seconds.")
+
+    troops = getLoad(gameData, carrier)
+    if not troops:
+        return {"territory": territory.name, "unloaded": []}
+
+    cooldown = currentTime + cooldownConstants["loading"] * cooldownMultiplier["Loading"]
+    unloaded = []
+    for unit in troops:
+        gameData.updateUnit(unit.name, {"location": territory.name, "tiredUntil": cooldown})
+        unloaded.append(unit.name)
+
+    return {
+        "territory": territory.name,
+        "unloaded": unloaded,
+        "cooldown": cooldown - currentTime
+    }
