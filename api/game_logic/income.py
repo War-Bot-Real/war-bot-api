@@ -148,6 +148,8 @@ def collectIncome(gameData, nation: Nation):
     currentTime = gameData.gameTime()
     last = nation.last.copy()
     previousTax = last.get("tax", currentTime - taxCooldown)
+    if previousTax == 0:
+        previousTax = currentTime - taxCooldown
 
     if previousTax + taxCooldown > currentTime:
         raise ValueError(f"Can't collect yet! Next collection in {previousTax + taxCooldown - currentTime} seconds.")
