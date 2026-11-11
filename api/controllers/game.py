@@ -16,7 +16,7 @@ from api.game_logic.admin import registerNation
 from api.game_logic.top import top
 from api.game_logic.give import giveMoney
 from api.game_logic.military.attack import attack as executeAttack
-from api.game_logic.military.movement import move as executeMove
+from api.game_logic.military.movement import move as executeMove, executeHaul
 from api.game_logic.military.loading import load as executeLoad
 
 router = APIRouter()
@@ -722,3 +722,18 @@ def resflow(user=Depends(get_current_user)):
         "ideal": {resource: round(amount, 2) for resource, amount in ideal.items()},
         "actual": {resource: round(amount, 2) for resource, amount in actual.items()}
     }
+
+class HaulRequest(BaseModel):
+    unit: str
+    destination: str
+
+@router.post("/haul")
+def haul(request: HaulRequest, user=Depends(get_current_user)):
+    nation = checkNation(user)
+    try:
+        unit = gameData.getUnit(request.unit)
+        destination = gameData.getTerritory(request.destination)
+        result = executeHaul(gameData, nation, unit, destination)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"success": True, "result": result}

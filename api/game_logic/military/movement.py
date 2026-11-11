@@ -1,7 +1,7 @@
 from api.repositories.gameData import GameData
 from api.models import Territory, Sea, Unit
-from api.game_logic.shared import formatTime, formatList, formatNum
-from api.game_logic.military.shared import getDomain, getCapacity, station, findFuelRequired, planeFuelReq, findCooldown, planeCooldown, inRange, getAllBorders, findOwner, findCoastOccupant
+from api.game_logic.shared import formatTime, formatList
+from api.game_logic.military.shared import getDomain, getCapacity, station, findFuelRequired, planeFuelReq, findCooldown, planeCooldown, inRange, getAllBorders, findOwner, findCoastOccupant, calcDistance, cooldownMultiplier
 from api.game_logic.military.attack import aircraftInterception
 from api.game_logic.military.pathFinder import shortestPathFinder
 
@@ -169,3 +169,68 @@ def move(gameData: GameData, nation, units: list[Unit], target: str):
         message = f"`{units[0].name if len(units) == 1 else 'Aircraft'}` has been moved to **{dest.name}**."
 
     return {"success": True, "message": message, "destination": dest.name}
+
+def getRailDest(gameData, tiq: Territory) -> list[Territory]:
+    dests = []
+    for territory in gameData.getAllTerr():
+        if territory.name != tiq.name and shortestPathFinder(gameData, tiq, territory, True, True) is not None:
+            dests.append(territory)
+    return dests
+
+def executeHaul(gameData, nation, unit, destination):
+    if unit is None:
+        raise ValueError("Invalid unit")
+    if unit.nation != nation.name:
+        raise ValueError("You don't own this unit")
+    if unit.location == destination.name:
+        raise ValueError(f"{unit.name} is already in {destination.name}!")
+    
+    domain = getDomain(gameData, unit.type)
+    if domain == "Ground" and not unit.active:
+        raise ValueError("This unit is entrenched. Activate it before moving.")
+    if domain == "Naval" and not destination.coast:
+        raise ValueError(f"{destination.name} is landlocked. Naval units must be hauled to a coastal territory.")
+
+    currentTime = gameData.gameTime()
+    if unit.tiredUntil > currentTime:
+        raise ValueError(f"This unit cannot move yet. Its cooldown ends in {unit.tiredUntil - currentTime:.0f} seconds.")
+
+    source = gameData.getTerritory(unit.location)
+    if "Railway Station" not in source.buildings:
+        raise ValueError(f"{source.name} does not have a railway station!")
+    if "Railway Station" not in destination.buildings:
+        raise ValueError(f"{destination.name} does not have a railway station!")
+
+    path = shortestPathFinder(gameData, source, destination, True, True, True)
+    if path is None:
+        raise ValueError(f"No valid rail connects {source.name} and {destination.name}.")
+
+    dist = 0.0
+    terrainMult = 1.0
+    for i in range(len(path) - 1):
+        dist += calcDistance(path[i], path[i + 1])
+        terrainMult *= path[i].terrain ** 0.2
+    terrainMult *= path[-1].terrain ** 0.2
+
+    coalCost = round(dist / 20 * terrainMult, 2)
+    resources = dict(nation.resources or {})
+    coal = resources.get("Coal", 0)
+    if coal < coalCost:
+        raise ValueError(f"{round(coalCost - coal, 2)} more coal required to complete this action.")
+
+    cooldown = dist / 100 * terrainMult * cooldownMultiplier["Rail"]
+    unit.tiredUntil = currentTime + cooldown
+    unit.location = destination.name
+    resources["Coal"] = round(coal - coalCost, 2)
+
+    gameData.updateUnit(unit.name, {"location": unit.location, "tiredUntil": unit.tiredUntil})
+    gameData.updateNation(nation.name, {"resources": resources})
+
+    return {
+        "unit": unit.name,
+        "destination": destination.name,
+        "distance": round(dist, 2),
+        "terrain_multiplier": round(terrainMult, 4),
+        "coal_cost": coalCost,
+        "cooldown": round(cooldown, 2)
+    }
