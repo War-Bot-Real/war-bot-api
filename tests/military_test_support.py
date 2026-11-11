@@ -206,7 +206,17 @@ def make_nation(name, trusted=(), inventory=None):
     })
 
 
-def make_territory(name, nation, *, location=(0, 0), bordering=(), coast=(), buildings=()):
+def make_territory(
+    name,
+    nation,
+    *,
+    location=(0, 0),
+    bordering=(),
+    coast=(),
+    buildings=(),
+    rails=(),
+    terrain=0
+):
     return Territory({
         "name": name,
         "location": [list(location)],
@@ -217,8 +227,8 @@ def make_territory(name, nation, *, location=(0, 0), bordering=(), coast=(), bui
         "coast": list(coast),
         "integrated": 0,
         "area": 0,
-        "terrain": 0,
-        "rails": [],
+        "terrain": terrain,
+        "rails": list(rails),
         "resources": {},
         "devastation": 0
     })

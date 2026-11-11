@@ -213,7 +213,7 @@ def executeHaul(gameData, nation, unit, destination):
     terrainMult *= path[-1].terrain ** 0.2
 
     coalCost = round(dist / 20 * terrainMult, 2)
-    resources = dict(nation.resources or {})
+    resources = dict(nation.inventory or {})
     coal = resources.get("Coal", 0)
     if coal < coalCost:
         raise ValueError(f"{round(coalCost - coal, 2)} more coal required to complete this action.")
@@ -224,7 +224,7 @@ def executeHaul(gameData, nation, unit, destination):
     resources["Coal"] = round(coal - coalCost, 2)
 
     gameData.updateUnit(unit.name, {"location": unit.location, "tiredUntil": unit.tiredUntil})
-    gameData.updateNation(nation.name, {"resources": resources})
+    gameData.updateNation(nation.name, {"inventory": resources})
 
     return {
         "unit": unit.name,
