@@ -28,7 +28,6 @@ economicActivity = {
     "Financial Center": 2
 }
 
-
 def calcTerritoryRev(gameTime, territory: Territory, nation: Nation) -> float:
     r = territory.pop ** 0.8
     for b in territory.buildings:
@@ -40,10 +39,11 @@ def calcTerritoryRev(gameTime, territory: Territory, nation: Nation) -> float:
         r *= economicActivity["Unintegrated"]
     return r * calcStabRevEffect(nation.stability)
 
+def calcNationRev(gameData, nation) -> float:
+    return sum(calcTerritoryRev(gameData.gameTime(), terr, nation) for terr in gameData.getNationTerr(nation.name))
 
 def calcStabRevEffect(stab: int):
     return 0.05 * stab ** 0.7 if stab > 0 else 0.05 * stab
-
 
 def calcRevByTerr(gameData, nation):
     rev = {}

@@ -1,8 +1,18 @@
 from api.repositories.gameData import GameData
 from api.game_logic.shared import formatList
+from api.game_logic.income import calcNationRev
 
 def options():
   return ["area", "population", "coal", "iron"]
+
+def calcPower(gameData, nation) -> float:
+    territories = gameData.getAllTerr()
+    worldArea = sum(terr.area for terr in territories)
+    nationArea = sum(terr.area for terr in gameData.getNationTerr(nation.name))
+    if worldArea == 0:
+        return 0
+    power = calcNationRev(gameData, nation) / 2_000_000 + nationArea / worldArea / 0.3
+    return max(power, 0)
 
 def top(gameData: GameData, category):
   if category not in options():
