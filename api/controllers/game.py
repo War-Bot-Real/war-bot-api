@@ -759,7 +759,7 @@ def build(territory: str, building: str, user=Depends(get_current_user)):
         raise HTTPException(status_code=400, detail=str(e))
     return {"success": True, "result": result}
   
-@router.post("/bulldoze/{territory}/{building}")
+@router.post("/bulldoze/building/{territory}/{building}")
 def bulldoze(territory: str, building: str, user=Depends(get_current_user)):
     nation = checkNation(user)
     try:
