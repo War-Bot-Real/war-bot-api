@@ -1,9 +1,13 @@
 import math
 from api.game_logic.top import calcPower
 
+bulldozeCosts = {
+    "Building": 20000,
+    "Track": 5000
+}
+
 def getAllBuildings(gameData) -> list[str]:
     return list(gameData.getDefaultGameData()["Buildings"])
-
 
 def financialCenterLimit(gameData, nation) -> int:
     power = calcPower(gameData, nation)
@@ -57,3 +61,46 @@ def executeBuild(gameData, nation, territory, building: str):
         "territory": territory.name,
         "remaining": resources[building]
     }
+
+def executeBulldoze(gameData, nation, territory, building: str):
+    if territory.nation != nation.name:
+        raise ValueError(f"You don't own {territory.name}!")
+
+    buildings = list(territory.buildings or [])
+    matches = [b for b in buildings if building.lower() in b.lower()]
+
+    if not matches:
+        raise ValueError(f"{building} is not a valid building, or does not exist in {territory.name}.")
+    if len(matches) > 1:
+        raise ValueError("Multiple buildings found. Be more specific.")
+
+    cost = bulldozeCosts["Building"]
+    if nation.balance < cost:
+        raise ValueError(f"Not enough funds! It costs ${cost:,} to bulldoze a building.")
+
+    removed = matches[0]
+    buildings.remove(removed)
+    gameData.updateTerritory(territory.name, {"buildings": buildings})
+    gameData.updateNation(nation.name, {"balance": nation.balance - cost})
+
+    return {"building": removed, "territory": territory.name, "cost": cost}
+
+
+def executeBulldozeTrack(gameData, nation, terr1, terr2):
+    if terr2.name not in terr1.rails:
+        raise ValueError(f"There is no rail between {terr1.name} and {terr2.name}!")
+
+    cost = bulldozeCosts["Track"]
+    if nation.balance < cost:
+        raise ValueError(f"You don't have enough money to bulldoze this track! This action costs ${cost:,}.")
+
+    rails1 = list(terr1.rails or [])
+    rails2 = list(terr2.rails or [])
+    rails1.remove(terr2.name)
+    rails2.remove(terr1.name)
+
+    gameData.updateTerritory(terr1.name, {"rails": rails1})
+    gameData.updateTerritory(terr2.name, {"rails": rails2})
+    gameData.updateNation(nation.name, {"balance": nation.balance - cost})
+
+    return {"territories": [terr1.name, terr2.name], "cost": cost}

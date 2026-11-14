@@ -18,7 +18,7 @@ from api.game_logic.give import giveMoney
 from api.game_logic.military.attack import attack as executeAttack
 from api.game_logic.military.movement import executeMove, executeHaul
 from api.game_logic.military.loading import executeLoad, executeUnload
-from api.game_logic.buildings import executeBuild
+from api.game_logic.buildings import executeBuild, executeBulldoze, executeBulldozeTrack
 
 router = APIRouter()
 
@@ -755,6 +755,28 @@ def build(territory: str, building: str, user=Depends(get_current_user)):
     try:
         territory = gameData.getTerritory(territory)
         result = executeBuild(gameData, nation, territory, building)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"success": True, "result": result}
+  
+@router.post("/bulldoze/{territory}/{building}")
+def bulldoze(territory: str, building: str, user=Depends(get_current_user)):
+    nation = checkNation(user)
+    try:
+        territory = gameData.getTerritory(territory)
+        result = executeBulldoze(gameData, nation, territory, building)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"success": True, "result": result}
+
+
+@router.post("/bulldoze/track/{territory1}/{territory2}")
+def bulldozeTrack(territory1: str, territory2: str, user=Depends(get_current_user)):
+    nation = checkNation(user)
+    try:
+        terr1 = gameData.getTerritory(territory1)
+        terr2 = gameData.getTerritory(territory2)
+        result = executeBulldozeTrack(gameData, nation, terr1, terr2)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {"success": True, "result": result}
