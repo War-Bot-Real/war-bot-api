@@ -25,6 +25,21 @@ def build_income_game(*, current_time, last_tax=None):
     return game_data, nation
 
 
+@pytest.mark.parametrize("resource", ["Oil", "Steel"])
+def test_cannot_collect_oil_or_steel_without_producing_building(resource):
+    current_time = 100_000
+    game_data, nation = build_income_game(
+        current_time=current_time,
+        last_tax=current_time - TAX_COOLDOWN
+    )
+    territory = game_data.getTerritory("Paris")
+    territory.resources = {resource: 5}
+
+    result = collectIncome(game_data, nation)
+
+    assert resource not in result["Resources"]
+
+
 def test_cannot_collect_before_30_minutes():
     current_time = 100_000
     game_data, nation = build_income_game(

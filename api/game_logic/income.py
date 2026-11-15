@@ -63,6 +63,8 @@ def getResources(gameData, nation: Nation) -> dict:
     resources = {}
     for terr in gameData.getNationTerr(nation.name):
         for resource, amount in terr.resources.items():
+            if resource == "Oil" and "Oil Drill" not in terr.buildings:
+                continue
             resources[resource] = resources.get(resource, 0) + amount
     return {resource: round(amount, 2) for resource, amount in resources.items()}
 
