@@ -116,7 +116,6 @@ def calcRailPrice(terr1, terr2) -> float:
         price *= (len(terr2.rails or []) + 1) ** 0.3
     return round(price, 2)
 
-
 def getRailPrices(gameData, nation, territory):
     prices = []
     for name in territory.bordering:
@@ -126,21 +125,22 @@ def getRailPrices(gameData, nation, territory):
         prices.append({"territory": neighbor.name, "price": calcRailPrice(territory, neighbor)})
     return prices
 
-
 def executePave(gameData, nation, terr1, terr2, contributionType: str, contributionValue: float):
     if terr2.name not in terr1.bordering:
         raise ValueError("Territories do not border each other")
     if terr2.name in (terr1.rails or []):
         raise ValueError("A railway already exists between these territories")
+    if contributionType not in ("percent", "dollar") or contributionValue < 0:
+        raise ValueError("Invalid contribution")
 
-    approvers = sorted({terr.nation for terr in (terr1, terr2) if terr.nation != nation.name})
+    owners = sorted({terr.nation for terr in (terr1, terr2) if terr.nation != nation.name})
     trusted = nation.canEnter()
-    if any(owner not in trusted for owner in approvers):
+    if any(owner not in trusted for owner in owners):
         raise ValueError("You do not have permission to build a railway in these territories")
 
     price = calcRailPrice(terr1, terr2)
 
-    if not approvers:
+    if not owners:
         if nation.balance < price:
             raise ValueError("Insufficient funds")
         gameData.updateTerritory(terr1.name, {"rails": list(terr1.rails or []) + [terr2.name]})
@@ -148,33 +148,83 @@ def executePave(gameData, nation, terr1, terr2, contributionType: str, contribut
         gameData.updateNation(nation.name, {"balance": nation.balance - price})
         return {"status": "built", "price": price}
 
-    if contributionType not in ("percent", "dollar"):
-        raise ValueError("Contribution type must be 'percent' or 'dollar'")
-    if contributionValue < 0:
-        raise ValueError("Contribution cannot be negative")
-
     contribution = price * min(contributionValue, 100) / 100 if contributionType == "percent" else min(contributionValue, price)
     contribution = round(contribution, 2)
     remaining = round(price - contribution, 2)
     payments = {nation.name: contribution}
-    for owner in approvers:
-        payments[owner] = round(remaining / len(approvers), 2)
-    payments[approvers[-1]] = round(payments[approvers[-1]] + remaining - sum(payments.values()) + contribution, 2)
+    for owner in owners:
+        payments[owner] = round(remaining / len(owners), 2)
+    payments[owners[-1]] = round(payments[owners[-1]] + price - sum(payments.values()), 2)
 
     details = {
         "territories": [terr1.name, terr2.name],
         "totalCost": price,
         "payments": payments,
-        "approvers": approvers,
         "approved": [nation.name]
     }
 
-    # Replace any previous request from this nation for the same territory pair.
     for interaction in gameData.getInteractions("rail"):
-        existingDetails = interaction.get("details", {})
-        existingTerritories = existingDetails.get("territories", [])
-        if interaction.get("from") == nation.name and existingTerritories in ([terr1.name, terr2.name], [terr2.name, terr1.name]):
+        existing = interaction.get("details", {}).get("territories", [])
+        if interaction.get("from") == nation.name and existing in ([terr1.name, terr2.name], [terr2.name, terr1.name]):
             gameData.deleteInteraction(interaction["id"])
 
-    gameData.createInteraction(nation.name, approvers[0], "rail", details)
+    gameData.createInteraction(nation.name, None, "rail", details)
     return {"status": "pending", "price": price, "payments": payments}
+
+def approvePave(gameData, nation, interactionId):
+    interaction = next((i for i in gameData.getInteractions("rail") if str(i["id"]) == str(interactionId)), None)
+    if not interaction:
+        raise ValueError("Rail request not found")
+
+    details = interaction["details"]
+    terr1 = gameData.getTerritory(details["territories"][0])
+    terr2 = gameData.getTerritory(details["territories"][1])
+    payments = details["payments"]
+    approved = details.get("approved", [])
+
+    if terr2.name not in terr1.bordering:
+        raise ValueError("These territories no longer border each other")
+    if terr2.name in (terr1.rails or []):
+        raise ValueError("A railway already exists between these territories")
+
+    requiredApprovals = {terr1.nation, terr2.nation}
+    requiredApprovals.update(payer for payer, amount in payments.items() if amount > 0)
+    requiredApprovals.discard(interaction["from"])
+
+    if nation.name not in requiredApprovals:
+        raise ValueError("Your nation is not required to approve this request")
+    if nation.name in approved:
+        raise ValueError("Your nation has already approved this request")
+
+    approved.append(nation.name)
+    remaining = requiredApprovals - set(approved)
+
+    if remaining:
+        details["approved"] = approved
+        gameData.updateInteraction(interaction["id"], {"details": details})
+        return {"status": "pending", "approved": approved, "remaining": sorted(remaining)}
+
+    # Validate every payment before making any changes.
+    payers = {}
+    for payer, amount in payments.items():
+        if amount <= 0:
+            continue
+        payerNation = gameData.getNation(payer)
+        if payerNation.balance < amount:
+            raise ValueError(f"{payer} does not have sufficient funds")
+        payers[payer] = payerNation
+
+    rails1 = list(terr1.rails or [])
+    rails2 = list(terr2.rails or [])
+    rails1.append(terr2.name)
+    rails2.append(terr1.name)
+
+    gameData.updateTerritory(terr1.name, {"rails": rails1})
+    gameData.updateTerritory(terr2.name, {"rails": rails2})
+
+    for payer, amount in payments.items():
+        if amount > 0:
+            gameData.updateNation(payer, {"balance": payers[payer].balance - amount})
+
+    gameData.deleteInteraction(interaction["id"])
+    return {"status": "built", "territories": [terr1.name, terr2.name], "payments": payments}

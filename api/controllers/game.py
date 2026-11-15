@@ -18,7 +18,7 @@ from api.game_logic.give import giveMoney
 from api.game_logic.military.attack import attack as executeAttack
 from api.game_logic.military.movement import executeMove, executeHaul
 from api.game_logic.military.loading import executeLoad, executeUnload
-from api.game_logic.buildings import executeBuild, executeBulldoze, executeBulldozeTrack, getRailPrices, executePave
+from api.game_logic.buildings import executeBuild, executeBulldoze, executeBulldozeTrack, getRailPrices, executePave, approvePave
 
 router = APIRouter()
 
@@ -805,4 +805,53 @@ def pave(territory1: str, territory2: str, contribution: PaveContribution, user=
         result = executePave(gameData, nation, terr1, terr2, contribution.type, contribution.value)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    return {"success": True, "result": result}
+
+@router.post("/approve/rail/{interactionId}")
+def approveRailById(interactionId: str, user=Depends(get_current_user)):
+    nation = checkNation(user)
+    try:
+        result = approvePave(gameData, nation, interactionId)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"success": True, "result": result}
+
+@router.post("/approve/rail/{territory1}/{territory2}")
+def approveRailByTerritories(territory1: str, territory2: str, user=Depends(get_current_user)):
+    nation = checkNation(user)
+    try:
+        terr1 = gameData.getTerritory(territory1)
+        terr2 = gameData.getTerritory(territory2)
+
+        if terr2.name not in terr1.bordering:
+            raise ValueError("Territories do not border each other")
+
+        requests = [
+            interaction for interaction in gameData.getInteractions("rail")
+            if set(interaction.get("details", {}).get("territories", [])) == {terr1.name, terr2.name}
+        ]
+
+        if not requests:
+            raise ValueError(f"No rail requests exist between {terr1.name} and {terr2.name}")
+
+        if len(requests) > 1:
+            return {
+                "success": True,
+                "result": {
+                    "status": "multiple_requests",
+                    "requests": [
+                        {
+                            "id": request["id"],
+                            "proposer": request["from"],
+                            "payments": request["details"]["payments"]
+                        }
+                        for request in requests
+                    ]
+                }
+            }
+
+        result = approvePave(gameData, nation, requests[0]["id"])
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     return {"success": True, "result": result}
