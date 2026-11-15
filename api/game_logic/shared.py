@@ -118,3 +118,6 @@ def estimate(num):
       return "hundreds of"
   else:
       return "several"
+
+def calcDensity(terr: Territory) -> float:
+    return terr.pop / terr.area

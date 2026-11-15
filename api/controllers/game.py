@@ -3,7 +3,7 @@ from pydantic import BaseModel
 import secrets
 import string
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Optional, Literal
 
 from api.auth import get_current_user
 from api.database import gameData, supabase
@@ -18,7 +18,7 @@ from api.game_logic.give import giveMoney
 from api.game_logic.military.attack import attack as executeAttack
 from api.game_logic.military.movement import executeMove, executeHaul
 from api.game_logic.military.loading import executeLoad, executeUnload
-from api.game_logic.buildings import executeBuild, executeBulldoze, executeBulldozeTrack
+from api.game_logic.buildings import executeBuild, executeBulldoze, executeBulldozeTrack, getRailPrices, executePave
 
 router = APIRouter()
 
@@ -777,6 +777,32 @@ def bulldozeTrack(territory1: str, territory2: str, user=Depends(get_current_use
         terr1 = gameData.getTerritory(territory1)
         terr2 = gameData.getTerritory(territory2)
         result = executeBulldozeTrack(gameData, nation, terr1, terr2)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"success": True, "result": result}
+
+class PaveContribution(BaseModel):
+    type: Literal["percent", "dollar"]
+    value: int
+
+@router.get("/pave/{territory}/prices")
+def pavePrices(territory: str, user=Depends(get_current_user)):
+    nation = checkNation(user)
+    try:
+        territory = gameData.getTerritory(territory)
+        if territory.nation != nation.name:
+            raise ValueError("You do not own this territory")
+        return {"prices": getRailPrices(gameData, nation, territory)}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/pave/{territory1}/{territory2}")
+def pave(territory1: str, territory2: str, request: PaveContribution, user=Depends(get_current_user)):
+    nation = checkNation(user)
+    try:
+        terr1 = gameData.getTerritory(territory1)
+        terr2 = gameData.getTerritory(territory2)
+        result = executePave(gameData, nation, terr1, terr2, request.contribution.type, request.contribution.value)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {"success": True, "result": result}

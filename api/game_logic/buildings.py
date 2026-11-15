@@ -1,5 +1,6 @@
 import math
 from api.game_logic.top import calcPower
+from api.game_logic.shared import calcDensity, calcDistance
 
 bulldozeCosts = {
     "Building": 20000,
@@ -104,3 +105,84 @@ def executeBulldozeTrack(gameData, nation, terr1, terr2):
     gameData.updateNation(nation.name, {"balance": nation.balance - cost})
 
     return {"territories": [terr1.name, terr2.name], "cost": cost}
+
+def calcRailPrice(terr1, terr2) -> float:
+    if terr1.area <= 0 or terr2.area <= 0:
+        raise ValueError("Territory area must be greater than zero")
+    price = 75 * calcDistance(terr1, terr2) * terr1.terrain ** 0.5 * terr2.terrain ** 0.5 * (calcDensity(terr1) + calcDensity(terr2)) ** 0.1
+    if "Railway Station" not in terr1.buildings:
+        price *= (len(terr1.rails or []) + 1) ** 0.3
+    if "Railway Station" not in terr2.buildings:
+        price *= (len(terr2.rails or []) + 1) ** 0.3
+    return round(price, 2)
+
+
+def getRailPrices(gameData, nation, territory):
+    prices = []
+    for name in territory.bordering:
+        neighbor = gameData.getTerritory(name)
+        if neighbor.name in (territory.rails or []) or neighbor.nation != nation.name:
+            continue
+        prices.append({"territory": neighbor.name, "price": calcRailPrice(territory, neighbor)})
+    return prices
+
+def executePave(gameData, nation, terr1, terr2, contributionType: str, contributionValue: float):
+    if terr2.name not in terr1.bordering:
+        raise ValueError("Territories do not border each other")
+    if terr2.name in (terr1.rails or []):
+        raise ValueError("A railway already exists between these territories")
+
+    trusted = nation.canEnter()
+    owners = {terr.nation for terr in (terr1, terr2) if terr.nation != nation.name}
+    if any(owner not in trusted for owner in owners):
+        raise ValueError("You do not have permission to build a railway in these territories")
+
+    price = calcRailPrice(terr1, terr2)
+
+    # Both territories belong to the requester, so build immediately.
+    if not owners:
+        if nation.balance < price:
+            raise ValueError("Insufficient funds")
+        gameData.updateTerritory(terr1.name, {"rails": list(terr1.rails or []) + [terr2.name]})
+        gameData.updateTerritory(terr2.name, {"rails": list(terr2.rails or []) + [terr1.name]})
+        gameData.updateNation(nation.name, {"balance": nation.balance - price})
+        return {"status": "built", "price": price}
+
+    if contributionType not in ("percent", "dollar"):
+        raise ValueError("Contribution type must be 'percent' or 'dollar'")
+    if contributionValue < 0:
+        raise ValueError("Contribution cannot be negative")
+
+    contribution = price * min(contributionValue, 100) / 100 if contributionType == "percent" else min(contributionValue, price)
+    contribution = round(contribution, 2)
+    remaining = round(price - contribution, 2)
+    owners = sorted(owners)
+    shares = {owner: round(remaining / len(owners), 2) for owner in owners}
+    shares[owners[-1]] = round(shares[owners[-1]] + remaining - sum(shares.values()), 2)
+
+    details = {
+        "territories": [terr1.name, terr2.name],
+        "totalCost": price,
+        "payment": None
+    }
+
+    # Check for conflicting pending requests before creating any interactions.
+    existing = {}
+    for owner in owners:
+        interaction = gameData.getInteraction(nation.name, owner, "rail")
+        if interaction:
+            existingTerritories = interaction.get("details", {}).get("territories", [])
+            if existingTerritories not in ([terr1.name, terr2.name], [terr2.name, terr1.name]):
+                raise ValueError(f"You already have a pending rail request with {owner}")
+            existing[owner] = interaction
+
+    for owner in owners:
+        if owner in existing:
+            gameData.deleteInteraction(existing[owner]["id"])
+        details["payment"] = shares[owner]
+        gameData.createInteraction(nation.name, owner, "rail", details.copy())
+
+    return {
+        "price": price,
+        "costs": shares
+    }
