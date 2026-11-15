@@ -797,12 +797,12 @@ def pavePrices(territory: str, user=Depends(get_current_user)):
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/pave/{territory1}/{territory2}")
-def pave(territory1: str, territory2: str, request: PaveContribution, user=Depends(get_current_user)):
+def pave(territory1: str, territory2: str, contribution: PaveContribution, user=Depends(get_current_user)):
     nation = checkNation(user)
     try:
         terr1 = gameData.getTerritory(territory1)
         terr2 = gameData.getTerritory(territory2)
-        result = executePave(gameData, nation, terr1, terr2, request.contribution.type, request.contribution.value)
+        result = executePave(gameData, nation, terr1, terr2, contribution.type, contribution.value)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {"success": True, "result": result}

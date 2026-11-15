@@ -154,6 +154,10 @@ class GameData:
 
       return None
     
+    def getInteractions(self, interactionType):
+      res = self.supabase.table("interactions").select("*").eq("type", interactionType).execute()
+      return res.data or []
+    
     def createInteraction(self, fromNation, toNation, interactionType, details=None):
       if details is None:
           details = {}
@@ -166,6 +170,10 @@ class GameData:
           }).execute()
 
       return res.data[0]
+
+    def updateInteraction(self, interactionId, changes):
+      res = self.supabase.table("interactions").update(changes).eq("id", interactionId).execute()
+      return res.data[0] if res.data else None
     
     def deleteInteraction(self, interactionId):
       self.supabase.table("interactions").delete().eq("id", interactionId).execute()

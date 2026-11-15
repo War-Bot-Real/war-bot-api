@@ -126,21 +126,21 @@ def getRailPrices(gameData, nation, territory):
         prices.append({"territory": neighbor.name, "price": calcRailPrice(territory, neighbor)})
     return prices
 
+
 def executePave(gameData, nation, terr1, terr2, contributionType: str, contributionValue: float):
     if terr2.name not in terr1.bordering:
         raise ValueError("Territories do not border each other")
     if terr2.name in (terr1.rails or []):
         raise ValueError("A railway already exists between these territories")
 
+    approvers = sorted({terr.nation for terr in (terr1, terr2) if terr.nation != nation.name})
     trusted = nation.canEnter()
-    owners = {terr.nation for terr in (terr1, terr2) if terr.nation != nation.name}
-    if any(owner not in trusted for owner in owners):
+    if any(owner not in trusted for owner in approvers):
         raise ValueError("You do not have permission to build a railway in these territories")
 
     price = calcRailPrice(terr1, terr2)
 
-    # Both territories belong to the requester, so build immediately.
-    if not owners:
+    if not approvers:
         if nation.balance < price:
             raise ValueError("Insufficient funds")
         gameData.updateTerritory(terr1.name, {"rails": list(terr1.rails or []) + [terr2.name]})
@@ -156,33 +156,25 @@ def executePave(gameData, nation, terr1, terr2, contributionType: str, contribut
     contribution = price * min(contributionValue, 100) / 100 if contributionType == "percent" else min(contributionValue, price)
     contribution = round(contribution, 2)
     remaining = round(price - contribution, 2)
-    owners = sorted(owners)
-    shares = {owner: round(remaining / len(owners), 2) for owner in owners}
-    shares[owners[-1]] = round(shares[owners[-1]] + remaining - sum(shares.values()), 2)
+    payments = {nation.name: contribution}
+    for owner in approvers:
+        payments[owner] = round(remaining / len(approvers), 2)
+    payments[approvers[-1]] = round(payments[approvers[-1]] + remaining - sum(payments.values()) + contribution, 2)
 
     details = {
         "territories": [terr1.name, terr2.name],
         "totalCost": price,
-        "payment": None
+        "payments": payments,
+        "approvers": approvers,
+        "approved": [nation.name]
     }
 
-    # Check for conflicting pending requests before creating any interactions.
-    existing = {}
-    for owner in owners:
-        interaction = gameData.getInteraction(nation.name, owner, "rail")
-        if interaction:
-            existingTerritories = interaction.get("details", {}).get("territories", [])
-            if existingTerritories not in ([terr1.name, terr2.name], [terr2.name, terr1.name]):
-                raise ValueError(f"You already have a pending rail request with {owner}")
-            existing[owner] = interaction
+    # Replace any previous request from this nation for the same territory pair.
+    for interaction in gameData.getInteractions("rail"):
+        existingDetails = interaction.get("details", {})
+        existingTerritories = existingDetails.get("territories", [])
+        if interaction.get("from") == nation.name and existingTerritories in ([terr1.name, terr2.name], [terr2.name, terr1.name]):
+            gameData.deleteInteraction(interaction["id"])
 
-    for owner in owners:
-        if owner in existing:
-            gameData.deleteInteraction(existing[owner]["id"])
-        details["payment"] = shares[owner]
-        gameData.createInteraction(nation.name, owner, "rail", details.copy())
-
-    return {
-        "price": price,
-        "costs": shares
-    }
+    gameData.createInteraction(nation.name, approvers[0], "rail", details)
+    return {"status": "pending", "price": price, "payments": payments}
