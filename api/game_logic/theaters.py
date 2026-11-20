@@ -17,3 +17,50 @@ def createTheater(gameData: GameData, nation: Nation, name: str):
 
     gameData.updateNation(nation.name, {"theaters": theaters})
     return {"name": name, "territories": [], "seas": []}
+
+def getTheater(nation: Nation, name: str):
+    for theater in nation.theaters:
+        if theater.lower() == name.lower():
+            return {"name": theater, **nation.theaters[theater]}
+
+    raise ValueError(f"Theater '{name}' not found")
+
+def addtoTheater(gameData: GameData, nation: Nation, name: str, items: list[str]):
+    theaterName = next((t for t in nation.theaters if t.lower() == name.lower()), None)
+    if theaterName is None:
+        raise ValueError(f"Theater '{name}' not found")
+
+    theaters = {k: dict(v) for k, v in nation.theaters.items()}
+    theater = theaters[theaterName]
+
+    results = {"added": [], "failed": []}
+
+    for item in items:
+        territories = gameData.getAllTerr()
+        seas = gameData.getAllSeas()
+
+        terrMatches = [t for t in territories if t.name.lower() == item.strip().lower()]
+        seaMatches = [s for s in seas if s.name.lower() == item.strip().lower()]
+
+        if len(terrMatches) + len(seaMatches) == 0:
+            results["failed"].append({"name": item, "reason": "Not found"})
+            continue
+
+        if len(terrMatches) + len(seaMatches) > 1:
+            results["failed"].append({"name": item, "reason": "Ambiguous name"})
+            continue
+
+        entity = terrMatches[0] if terrMatches else seaMatches[0]
+        category = "territories" if terrMatches else "seas"
+
+        if entity.name in theater[category]:
+            results["failed"].append({"name": item, "reason": "Already in theater"})
+            continue
+
+        theater[category].append(entity.name)
+        results["added"].append({"name": entity.name, "type": category})
+
+    if results["added"]:
+        gameData.updateNation(nation.name, {"theaters": theaters})
+
+    return results
