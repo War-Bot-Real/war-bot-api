@@ -3,14 +3,14 @@ from pydantic import BaseModel
 
 from api.database import gameData
 from api.controllers.game import checkNation
-from api.game_logic.theaters import createTheater, getTheater, addtoTheater, removeFromTheater
+from api.game_logic.theaters import createTheater, getTheater, addtoTheater, removeFromTheater, deleteTheater
 
 router = APIRouter(tags=["theaters"])
 
 class TheaterTiles(BaseModel):
     items: list[str]
 
-@router.post("/theater/create/{name}")
+@router.post("/theaters/create/{name}")
 def create(name: str, data: TheaterTiles, nation=Depends(checkNation)):
     try:
         return {"success": True, "result": createTheater(gameData, nation, name, data.items)}
@@ -41,5 +41,12 @@ def remove_items(name: str, data: TheaterTiles, nation=Depends(checkNation)):
     try:
         result = removeFromTheater(gameData, nation, name, data.items)
         return {"success": True, "result": result}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+      
+@router.delete("/theaters/{name}")
+def delete(name: str, nation=Depends(checkNation)):
+    try:
+        return {"success": True, "result": deleteTheater(gameData, nation, name)}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

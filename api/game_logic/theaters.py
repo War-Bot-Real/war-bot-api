@@ -108,3 +108,14 @@ def removeFromTheater(gameData: GameData, nation: Nation, name: str, items: list
         gameData.updateNation(nation.name, {"theaters": theaters})
 
     return results
+
+def deleteTheater(gameData: GameData, nation: Nation, name: str):
+    theaterName = next((t for t in nation.theaters if t.lower() == name.lower()), None)
+    if theaterName is None:
+        raise ValueError(f"Theater '{name}' not found")
+
+    theaters = dict(nation.theaters)
+    del theaters[theaterName]
+
+    gameData.updateNation(nation.name, {"theaters": theaters})
+    return {"deleted": theaterName}
