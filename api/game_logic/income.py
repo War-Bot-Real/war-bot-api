@@ -42,6 +42,34 @@ def calcTerritoryRev(gameTime, territory: Territory, nation: Nation) -> float:
 def calcNationRev(gameData, nation) -> float:
     return sum(calcTerritoryRev(gameData.gameTime(), terr, nation) for terr in gameData.getNationTerr(nation.name))
 
+def calcAllNationRevs(gameData, territories=None) -> dict[str, float]:
+    if territories is None:
+        territories = gameData.getAllTerr()
+
+    gameTime = gameData.gameTime()
+    nations = {n.name: n for n in gameData.getAllNations()}
+    revenues = {name: 0.0 for name in nations}
+
+    stabEffects = {name: calcStabRevEffect(nation.stability) for name, nation in nations.items()}
+
+    for terr in territories:
+        nation = nations.get(terr.nation)
+        if nation is None:
+            continue
+
+        r = terr.pop ** 0.8
+        for b in terr.buildings:
+            if "Statue" not in b:
+                r *= economicActivity[b]
+        if terr.name == nation.capital:
+            r *= economicActivity["Capital"]
+        if terr.integrated > gameTime:
+            r *= economicActivity["Unintegrated"]
+
+        revenues[nation.name] += r * stabEffects[nation.name]
+
+    return revenues
+
 def calcStabRevEffect(stab: int):
     return 0.05 * stab ** 0.7 if stab > 0 else 0.05 * stab
 
@@ -50,7 +78,6 @@ def calcRevByTerr(gameData, nation):
     for t in gameData.getNationTerr(nation.name):
         rev[t.name] = round(calcTerritoryRev(gameData.gameTime(), t, nation) * nation.tax_rate / 2000, 2)
     return rev
-
 
 def findppgain(taxRate: int) -> float | int:
     pp = -1.5 * (taxRate + 5) ** 0.5 + 10
