@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 from api.database import gameData
 from api.controllers.game import checkNation
-from api.game_logic.theaters import createTheater, getTheater, addtoTheater
+from api.game_logic.theaters import createTheater, getTheater, addtoTheater, removeFromTheater
 
 router = APIRouter(tags=["theaters"])
 
@@ -32,6 +32,14 @@ def get_one(name: str, nation=Depends(checkNation)):
 def add_items(name: str, data: TheaterTiles, nation=Depends(checkNation)):
     try:
         result = addtoTheater(gameData, nation, name, data.items)
+        return {"success": True, "result": result}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+      
+@router.post("/theaters/remove/{name}")
+def remove_items(name: str, data: TheaterTiles, nation=Depends(checkNation)):
+    try:
+        result = removeFromTheater(gameData, nation, name, data.items)
         return {"success": True, "result": result}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

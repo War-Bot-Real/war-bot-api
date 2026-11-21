@@ -1,5 +1,6 @@
 from api.repositories.gameData import GameData
 from api.models import Nation
+from api.game_logic.shared import findItem
   
 def createTheater(gameData: GameData, nation: Nation, name: str, items: list[str]):
     if not name.strip():
@@ -42,8 +43,8 @@ def addtoTheater(gameData: GameData, nation: Nation, name: str, items: list[str]
     seas = gameData.getAllSeas()
 
     for item in items:
-        terrMatches = [t for t in territories if t.name.lower() == item.strip().lower()]
-        seaMatches = [s for s in seas if s.name.lower() == item.strip().lower()]
+        terrMatches = findItem(item, territories, "name")
+        seaMatches = findItem(item, seas, "name")
 
         if len(terrMatches) + len(seaMatches) == 0:
             results["failed"].append({"name": item, "reason": "Not found"})
@@ -64,6 +65,46 @@ def addtoTheater(gameData: GameData, nation: Nation, name: str, items: list[str]
         results["added"].append({"name": entity.name, "type": category})
 
     if results["added"] and theaters is nation.theaters:
+        gameData.updateNation(nation.name, {"theaters": theaters})
+
+    return results
+  
+def removeFromTheater(gameData: GameData, nation: Nation, name: str, items: list[str]):
+    theaterName = next((t for t in nation.theaters if t.lower() == name.lower()), None)
+    if theaterName is None:
+        raise ValueError(f"Theater '{name}' not found")
+
+    theaters = {k: dict(v) for k, v in nation.theaters.items()}
+    theater = theaters[theaterName]
+
+    territories = gameData.getAllTerr()
+    seas = gameData.getAllSeas()
+    results = {"removed": [], "failed": []}
+
+    for item in items:
+        terrMatches = findItem(item, territories, "name")
+        seaMatches = findItem(item, seas, "name")
+
+        matches = [(t, "territories") for t in terrMatches if t.name in theater["territories"]]
+        matches += [(s, "seas") for s in seaMatches if s.name in theater["seas"]]
+
+        if len(matches) == 0:
+            if not terrMatches and not seaMatches:
+                reason = "Not found"
+            else:
+                reason = "Not in theater"
+            results["failed"].append({"name": item, "reason": reason})
+            continue
+
+        if len(matches) > 1:
+            results["failed"].append({"name": item, "reason": "Ambiguous name"})
+            continue
+
+        entity, category = matches[0]
+        theater[category].remove(entity.name)
+        results["removed"].append({"name": entity.name, "type": category})
+
+    if results["removed"]:
         gameData.updateNation(nation.name, {"theaters": theaters})
 
     return results
