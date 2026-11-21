@@ -1,7 +1,7 @@
 from api.repositories.gameData import GameData
 from api.models import Nation
-
-def createTheater(gameData: GameData, nation: Nation, name: str):
+  
+def createTheater(gameData: GameData, nation: Nation, name: str, items: list[str]):
     if not name.strip():
         raise ValueError("Theater name cannot be empty")
 
@@ -12,11 +12,13 @@ def createTheater(gameData: GameData, nation: Nation, name: str):
     if any(theater.lower() == name.lower() for theater in nation.theaters):
         raise ValueError("You already have a theater with that name")
 
-    theaters = dict(nation.theaters)
+    theaters = {k: dict(v) for k, v in nation.theaters.items()}
     theaters[name] = {"territories": [], "seas": []}
 
+    result = addtoTheater(gameData, nation, name, items, theaters)
     gameData.updateNation(nation.name, {"theaters": theaters})
-    return {"name": name, "territories": [], "seas": []}
+
+    return {"name": name, **theaters[name], "tiles": result}
 
 def getTheater(nation: Nation, name: str):
     for theater in nation.theaters:
@@ -25,20 +27,21 @@ def getTheater(nation: Nation, name: str):
 
     raise ValueError(f"Theater '{name}' not found")
 
-def addtoTheater(gameData: GameData, nation: Nation, name: str, items: list[str]):
-    theaterName = next((t for t in nation.theaters if t.lower() == name.lower()), None)
+def addtoTheater(gameData: GameData, nation: Nation, name: str, items: list[str], theaters=None):
+    if theaters is None:
+        theaters = {k: dict(v) for k, v in nation.theaters.items()}
+
+    theaterName = next((t for t in theaters if t.lower() == name.lower()), None)
     if theaterName is None:
         raise ValueError(f"Theater '{name}' not found")
 
-    theaters = {k: dict(v) for k, v in nation.theaters.items()}
     theater = theaters[theaterName]
-
     results = {"added": [], "failed": []}
 
-    for item in items:
-        territories = gameData.getAllTerr()
-        seas = gameData.getAllSeas()
+    territories = gameData.getAllTerr()
+    seas = gameData.getAllSeas()
 
+    for item in items:
         terrMatches = [t for t in territories if t.name.lower() == item.strip().lower()]
         seaMatches = [s for s in seas if s.name.lower() == item.strip().lower()]
 
@@ -60,7 +63,7 @@ def addtoTheater(gameData: GameData, nation: Nation, name: str, items: list[str]
         theater[category].append(entity.name)
         results["added"].append({"name": entity.name, "type": category})
 
-    if results["added"]:
+    if results["added"] and theaters is nation.theaters:
         gameData.updateNation(nation.name, {"theaters": theaters})
 
     return results

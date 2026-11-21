@@ -13,7 +13,7 @@ class TheaterTiles(BaseModel):
 @router.post("/theater/create/{name}")
 def create(name: str, data: TheaterTiles, nation=Depends(checkNation)):
     try:
-        return {"success": True, "result": createTheater(gameData, nation, name)}
+        return {"success": True, "result": createTheater(gameData, nation, name, data.items)}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
