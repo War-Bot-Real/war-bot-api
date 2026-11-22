@@ -855,3 +855,12 @@ def approveRailByTerritories(territory1: str, territory2: str, user=Depends(get_
         raise HTTPException(status_code=400, detail=str(e))
 
     return {"success": True, "result": result}
+
+@router.patch("/username/{username}")
+def setUsername(username: str, user=Depends(get_current_user)):
+    username = username.strip()
+    if not username:
+        raise HTTPException(status_code=400, detail="Username cannot be empty")
+
+    supabase.table("players").update({"username": username}).eq("id", user["id"]).execute()
+    return {"success": True, "username": username}

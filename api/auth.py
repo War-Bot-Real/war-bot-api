@@ -23,7 +23,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
                 "source": "bot"
             }
 
-        res = supabase.table("players").select("id, auth_user_id, discord_id, admin").eq("discord_id", discord_id).execute()
+        res = supabase.table("players").select("id, auth_user_id, discord_id, admin, username").eq("discord_id", discord_id).execute()
         if not res.data:
             return {
                 "id": None,
@@ -42,7 +42,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         if not user or not user.user:
             raise HTTPException(status_code=401, detail="Invalid authentication")
 
-        res = supabase.table("players").select("id, auth_user_id, discord_id, admin").eq("auth_user_id", user.user.id).execute()
+        res = supabase.table("players").select("id, auth_user_id, discord_id, admin, username").eq("auth_user_id", user.user.id).execute()
 
         if not res.data:
             raise HTTPException(status_code=404, detail="Player not found")
