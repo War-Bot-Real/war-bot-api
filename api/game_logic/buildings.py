@@ -35,8 +35,8 @@ def executeBuild(gameData, nation, territory, building: str):
     if building == "Statue":
         raise ValueError("Statue construction is not implemented yet.")
 
-    resources = dict(nation.resources or {})
-    if resources.get(building, 0) <= 0:
+    inventory = dict(nation.inventory or {})
+    if inventory.get(building, 0) <= 0:
         raise ValueError(f"You don't have any {building} in your inventory.")
 
     if building in ["Oil Drill", "Fuel Refinery", "Financial Center", "Railway Center"] and territory.devastation > 10:
@@ -51,16 +51,16 @@ def executeBuild(gameData, nation, territory, building: str):
         if count >= financialCenterLimit(gameData, nation):
             raise ValueError("You have reached your limit for building financial centers!")
 
-    resources[building] -= 1
+    inventory[building] -= 1
     buildings.append(building)
 
-    gameData.updateNation(nation.name, {"resources": resources})
+    gameData.updateNation(nation.name, {"inventory": inventory})
     gameData.updateTerritory(territory.name, {"buildings": buildings})
 
     return {
         "building": building,
         "territory": territory.name,
-        "remaining": resources[building]
+        "remaining": inventory[building]
     }
 
 def executeBulldoze(gameData, nation, territory, building: str):
