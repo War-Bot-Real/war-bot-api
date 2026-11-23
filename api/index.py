@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.controllers.game import router as gameRouter
 from api.controllers.admin import router as adminRouter
+from api.controllers.theaters import router as theatersRouter
 
 app = FastAPI(title="War Bot API")
 
@@ -16,3 +17,4 @@ app.add_middleware(
 
 app.include_router(gameRouter)
 app.include_router(adminRouter)
+app.include_router(theatersRouter)
