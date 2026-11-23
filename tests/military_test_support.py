@@ -100,6 +100,12 @@ class InMemoryGameData(GameData):
         self.memory_supabase = MemorySupabase(tables)
         super().__init__(self.memory_supabase)
         self.default_data = {
+            "Buildings": {
+                "Airport": {},
+                "Airstrip": {},
+                "Railway Station": {},
+                "Fortress": {}
+            },
             "Units": {
                 "Ground": {
                     "Infantry": {
@@ -215,7 +221,8 @@ def make_territory(
     coast=(),
     buildings=(),
     rails=(),
-    terrain=0
+    terrain=0,
+    integrated=0
 ):
     return Territory({
         "name": name,
@@ -225,7 +232,7 @@ def make_territory(
         "population": 0,
         "buildings": list(buildings),
         "coast": list(coast),
-        "integrated": 0,
+        "integrated": integrated,
         "area": 0,
         "terrain": terrain,
         "rails": list(rails),

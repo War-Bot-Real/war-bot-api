@@ -1,7 +1,8 @@
 from api.game_logic.shared import quadify
 from api.game_logic.military.shared import getUnitData, getDomain
+from api.models import Territory
 
-def deployUnit(gameData, nation, territory, unit, quantity, unitData=None):
+def deployUnit(gameData, nation, territory: Territory, unit, quantity, unitData=None):
     if not isinstance(quantity, int):
         raise ValueError("Use an integer!")
 
@@ -11,7 +12,9 @@ def deployUnit(gameData, nation, territory, unit, quantity, unitData=None):
     if quantity < 0:
         raise ValueError("You can't deploy negative troops")
 
-    # Territory ownership
+    if not isinstance(territory, Territory):
+        raise ValueError("Units can only be deployed on territories")
+
     if territory.nation != nation.name:
         raise ValueError(f'{territory.name} is owned by {territory.nation}')
 
@@ -40,8 +43,8 @@ def deployUnit(gameData, nation, territory, unit, quantity, unitData=None):
     unitDomain = getDomain(gameData, unit, unitData)
     
     if unitDomain == "Naval":
-        # Coast occupant logic will be implemented later
-        pass
+        if not territory.coast:
+            raise ValueError(f"{territory.name} is landlocked. Naval units must be deployed on a coastal territory")
 
     if unitDomain == "Air":
         if "Airport" not in territory.buildings:

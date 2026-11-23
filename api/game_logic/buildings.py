@@ -88,6 +88,9 @@ def executeBulldoze(gameData, nation, territory, building: str):
 
 
 def executeBulldozeTrack(gameData, nation, terr1, terr2):
+    if terr1.nation != nation.name or terr2.nation != nation.name:
+        raise ValueError("You can only bulldoze tracks between territories that you own")
+
     if terr2.name not in terr1.rails:
         raise ValueError(f"There is no rail between {terr1.name} and {terr2.name}!")
 
