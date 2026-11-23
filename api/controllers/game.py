@@ -864,3 +864,7 @@ def setUsername(username: str, user=Depends(get_current_user)):
 
     supabase.table("players").update({"username": username}).eq("id", user["id"]).execute()
     return {"success": True, "username": username}
+
+@router.get("/unitdata")
+def getUnitData():
+    return gameData.getDefaultGameData()["Units"]

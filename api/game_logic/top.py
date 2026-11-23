@@ -29,6 +29,10 @@ class RankedNation:
         self.value = value
 
 def top(gameData: GameData, category):
+    category = category.lower()
+    if category == "options":
+        return options()
+    
     if category not in options():
         raise ValueError(f"Invalid option. The valid options to rank by are {formatList(options(), 'or')}.")
 
